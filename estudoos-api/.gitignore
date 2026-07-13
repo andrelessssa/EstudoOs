@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Ignorar credenciais locais e propriedades sensíveis
+src/main/resources/application.properties
+
+# Dentro do arquivo .gitignore que está na raiz do projeto
+estudoos-api/src/main/resources/application.properties
+
+
+
