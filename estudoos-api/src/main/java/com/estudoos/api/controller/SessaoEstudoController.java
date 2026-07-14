@@ -1,7 +1,10 @@
 package com.estudoos.api.controller;
 
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,5 +28,11 @@ public class SessaoEstudoController {
     public ResponseEntity<String> salvarSessaoDeHoje(@RequestBody SessaoDTO dto) {
         sessaoEstudoService.salvarSessaoDeHoje(dto);
         return ResponseEntity.ok("Sessão de estudos salva e revisões agendadas com sucesso! 🧠🎯");
+    }
+
+    // 🔗 ADICIONADO: Expõe o endpoint GET para o histórico vir direto do Postgres!
+    @GetMapping
+    public ResponseEntity<List<SessaoDTO>> listarSessoes() {
+        return ResponseEntity.ok(sessaoEstudoService.listarTodas());
     }
 }

@@ -1,5 +1,5 @@
 :root {
-    /* ── Superfícies ── */
+    /* ── Superfícies (mesmas do app de treino) ── */
     --bg:       #0A0E14;
     --surface:  #141A24;
     --surface2: #1B2330;
@@ -11,7 +11,7 @@
     --text:     #F2F5F9;
     --muted:    #8D9AB0;
 
-    /* ── Accents ── */
+    /* ── Accents (fire/gold do treino no lugar de indigo/purple) ── */
     --accent:   #FF5A3C;   /* fire — ações principais */
     --accent2:  #FFB020;   /* gold — destaque secundário */
 
@@ -28,14 +28,13 @@
     --teal:     #2dd4bf;
     --coral:    #FF5A3C;
 
-    /* ── Fontes ── */
+    /* ── Fontes (mesmas do app de treino) ── */
     --font:     'Inter', sans-serif;
     --font-display: 'Oswald', sans-serif;
     --mono:     'JetBrains Mono', monospace;
     --radius:   10px;
     --radius-lg:16px;
   }
-
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
@@ -311,7 +310,7 @@
     .page { padding: 1rem .75rem; }
   }
 
-  /* ── Titles com Oswald (display) ── */
+  /* ── Titles com Oswald (display) — tema app de treino ── */
   h1, h2, h3,
   .timer-val, .stat-val, .big-number,
   .subject-name, .card-title, .section-title,

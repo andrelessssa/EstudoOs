@@ -4,8 +4,9 @@ const API_URL = ''; // Como as telas estão na pasta static, a URL é relativa
 // ─── CORES ───────────────────────────────────────────────────────────────────
 const COLORS = ['#6c7bff','#34d399','#fbbf24','#f87171','#c084fc','#2dd4bf','#fb7185','#60a5fa','#a3e635','#f97316'];
 
-// ─── STATE LOCAL (Apenas cache para renderização rápida) ──────────────────────
+// ─── STATE LOCAL ─────────────────────────────────────────────────────────────
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
+let topicosSelecionadosLocalmente = []; // Controla os checks clicados na sessão de hoje
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -23,19 +24,24 @@ function showPage(id) {
   if (id === 'questoes') renderQuestoes();
 }
 
-// ─── DATAS (Fuso Horário Local Corrigido!) ───────────────────────────────────
+// ─── FUNÇÃO DE TOOGLE (ABRIR/FECHAR SANFONA) ──────────────────────────────────
+function toggleTopics(id) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+// ─── DATAS (Fuso Horário Local) ──────────────────────────────────────────────
 function today() { 
   const d = new Date();
   const offset = d.getTimezoneOffset();
   const localDate = new Date(d.getTime() - (offset * 60 * 1000));
   return localDate.toISOString().split('T')[0]; 
 }
+function dateStr(d) { return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); }
 
-function dateStr(d) { 
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); 
-}
-
-// ─── DASHBOARD (Consome dados dinâmicos da API) ────────────────────────────────
+// ─── DASHBOARD (PAINEL PRINCIPAL) ─────────────────────────────────────────────
 async function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   
@@ -46,10 +52,27 @@ async function renderDashboard() {
     const resRev = await fetch(`${API_URL}/api/revisoes/hoje`);
     const revisoesHoje = await resRev.json();
 
+    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
+
+    const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
+      try {
+        const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
+        const topicos = await resTopicos.json();
+        return { ...m, topicos: topicos };
+      } catch (e) {
+        return { ...m, topicos: [] };
+      }
+    }));
+
     let studied = 0;
-    state.materias.forEach(m => {
-      const lista = m.topicos || m.assuntos || m.topico || [];
-      lista.forEach(t => { if(t.concluido || t.done) studied++; });
+    materiasComTopicos.forEach(m => {
+      const lista = m.topicos || [];
+      lista.forEach(t => { 
+        const estaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(parseInt(t.id));
+        if(estaConcluido) {
+          studied++; 
+        }
+      });
     });
     
     const correct = state.questions.filter(q=>q.result==='correct').length;
@@ -61,17 +84,17 @@ async function renderDashboard() {
     document.getElementById('dash-rate').textContent = rate;
     document.getElementById('dash-reviews').textContent = revisoesHoje.length;
 
-    // Progresso por matéria
     const pl = document.getElementById('dash-progress-list');
-    if (!state.materias.length) {
+    if (!materiasComTopicos.length) {
       pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
     } else {
-      pl.innerHTML = state.materias.map((m, i) => {
-        const lista = m.topicos || m.assuntos || m.topico || [];
+      pl.innerHTML = materiasComTopicos.map((m, i) => {
+        const lista = m.topicos || [];
         const tot = lista.length;
-        const done = lista.filter(t=>t.concluido || t.done).length;
+        const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(parseInt(t.id))).length;
         const pct = tot ? Math.round(done/tot*100) : 0;
         const color = m.cor || COLORS[i % COLORS.length];
+        
         return `<div style="margin-bottom:.85rem;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <span style="font-size:13px;font-weight:500;">${m.nome}</span>
@@ -84,7 +107,6 @@ async function renderDashboard() {
       }).join('');
     }
 
-    // Calendário simples
     const cal = document.getElementById('dash-calendar');
     const now = new Date();
     const year = now.getFullYear(); const month = now.getMonth();
@@ -110,7 +132,7 @@ async function renderDashboard() {
   }
 }
 
-// ─── MATÉRIAS (Integração direta com o Banco de Dados) ────────────────────────
+// ─── MATÉRIAS & ASSUNTOS ──────────────────────────────────────────────────────
 function openAddMateria() {
   document.getElementById('materias-panel').style.display = 'block';
   document.getElementById('mat-name').value = '';
@@ -162,49 +184,61 @@ async function renderMaterias() {
       return;
     }
 
-    el.innerHTML = state.materias.map((m, i) => {
-      const listaTopicos = m.topicos || m.assuntos || m.topico || [];
-      const done = listaTopicos.filter(t => t.concluido || t.done).length;
+    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
+
+    const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
+      try {
+        const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
+        const topicos = await resTopicos.json();
+        return { ...m, topicos: topicos };
+      } catch (e) {
+        return { ...m, topicos: [] };
+      }
+    }));
+
+    el.innerHTML = materiasComTopicos.map((m, i) => {
+      const listaTopicos = m.topicos || [];
+      
+      const done = listaTopicos.filter(t => 
+        t.concluido === true || 
+        t.concluido === 'true' || 
+        t.done === true ||
+        concluidosLocais.includes(parseInt(t.id))
+      ).length;
+      
       const tot = listaTopicos.length;
       const pct = tot ? Math.round(done / tot * 100) : 0;
-      
-      const corMateria = m.cor || COLORS[i % COLORS.length];
+      const color = m.cor || COLORS[i % COLORS.length];
 
-      return `
-      <div style="margin-bottom: .5rem;">
+      return `<div>
         <div class="subject-row" onclick="toggleTopics('tops-${m.id}')">
-          <div class="subject-dot" style="background:${corMateria}; box-shadow:0 0 8px ${corMateria}55;"></div>
+          <div class="subject-dot" style="background:${color};box-shadow:0 0 8px ${color}55;"></div>
           <div class="subject-name">${m.nome}</div>
           <div class="subject-topics">${done}/${tot} assuntos</div>
-          <div style="width:80px;">
-            <div class="progress-track">
-              <div class="progress-fill" style="width:${pct}%; background:${corMateria};"></div>
-            </div>
-          </div>
-          <span style="font-size:12px; font-family:var(--mono); color:var(--muted);">${pct}%</span>
-          <button class="btn sm danger" onclick="event.stopPropagation(); deleteMateria('${m.id}')">✕</button>
+          <div style="width:80px;"><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color};"></div></div></div>
+          <span style="font-size:12px;font-family:var(--mono);color:var(--muted);">${pct}%</span>
+          <button class="btn sm danger" onclick="event.stopPropagation();deleteMateria('${m.id}')">✕</button>
         </div>
         
-        <div id="tops-${m.id}" style="display:none; padding:.4rem 0 .4rem 1.5rem;">
-          ${listaTopicos.length ? listaTopicos.map(t => `
+        <div id="tops-${m.id}" style="display:none;padding:.4rem 0 .4rem 1.5rem;">
+          ${listaTopicos.length ? listaTopicos.map(t => {
+            const jaConcluido = t.concluido === true || 
+                                t.concluido === 'true' || 
+                                t.done === true ||
+                                concluidosLocais.includes(parseInt(t.id));
+            
+            return `
             <div class="topic-row">
-              <div class="topic-check ${(t.concluido || t.done) ? 'checked' : ''}" style="pointer-events: none;"></div>
-              <div class="topic-name ${(t.concluido || t.done) ? 'done' : ''}">${t.nome}</div>
-              ${t.dataConclusao || t.doneDate ? `<span style="font-size:11px; color:var(--muted);">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
-            </div>`).join('') : '<div style="font-size:13px; color:var(--muted); padding:.5rem .9rem;">Nenhum assunto cadastrado</div>'}
+              <div class="topic-check ${jaConcluido ? 'checked' : ''}" style="pointer-events: none;"></div>
+              <div class="topic-name ${jaConcluido ? 'done' : ''}">${t.nome}</div>
+              ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
+            </div>`;
+          }).join('') : '<div style="font-size:13px;color:var(--muted);padding:.5rem .9rem;">Nenhum assunto cadastrado</div>'}
         </div>
       </div>`;
     }).join('');
   } catch (error) {
     console.error("Erro ao listar matérias:", error);
-    el.innerHTML = '<div class="empty"><div class="empty-icon">❌</div>Erro ao carregar dados do servidor</div>';
-  }
-}
-
-function toggleTopics(id) {
-  const el = document.getElementById(id);
-  if(el) {
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
   }
 }
 
@@ -214,15 +248,13 @@ async function deleteMateria(id) {
     const res = await fetch(`${API_URL}/api/materias/${id}`, { method: 'DELETE' });
     if(res.ok) {
       renderMaterias();
-    } else {
-      alert("Erro ao excluir matéria.");
     }
   } catch (error) {
     console.error("Erro ao excluir:", error);
   }
 }
 
-// ─── REVISÃO ESPAÇADA (Integração com as Revisões do Banco de Dados) ──────────
+// ─── REVISÃO ESPAÇADA ─────────────────────────────────────────────────────────
 async function renderRevisao() {
   const el = document.getElementById('review-list');
   try {
@@ -241,29 +273,16 @@ async function renderRevisao() {
     const stageColors = ['#f87171','#fbbf24','#60a5fa','#34d399'];
     el.innerHTML = revisoesHoje.map(r => {
       const stage = r.etapa || 1;
-      const anotacoes = r.anotacoes || r.sessaoAnotacoes || "Nenhuma anotação registrada para este tópico.";
-      
-      return `
-      <div style="margin-bottom: .75rem;">
-        <div class="review-card" onclick="toggleReviewNotes('notes-${r.id}')" style="cursor: pointer; margin-bottom: 0;">
-          <div class="review-icon" style="background:${stageColors[(stage-1)%4]}22;">
-            <span style="font-size:14px;font-weight:700;color:${stageColors[(stage-1)%4]};">${stage}ª</span>
-          </div>
-          <div class="review-info">
-            <div class="review-title" style="display: flex; align-items: center; gap: .5rem;">
-              ${r.topicoNome} 
-              <span style="font-size: 11px; color: var(--accent2);">📝 Ver resumo</span>
-            </div>
-            <div class="review-sub">${r.materiaNome} · clique para ler suas anotações</div>
-          </div>
-          <span class="badge due">REVISAR HOJE</span>
-          <button class="btn sm primary" onclick="event.stopPropagation(); doneReview('${r.id}')">✓ Feita</button>
+      return `<div class="review-card">
+        <div class="review-icon" style="background:${stageColors[(stage-1)%4]}22;">
+          <span style="font-size:14px;font-weight:700;color:${stageColors[(stage-1)%4]};">${stage}ª</span>
         </div>
-        
-        <div id="notes-${r.id}" style="display: none; background: var(--surface3); border: 1px solid var(--border); border-top: none; border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); padding: 1rem; font-size: 13px; color: var(--text); line-height: 1.6;">
-          <strong style="color: var(--accent2); display: block; margin-bottom: .4rem;">📝 Suas Notas do Estudo:</strong>
-          <p style="opacity: 0.9; font-style: italic;">"${anotacoes}"</p>
+        <div class="review-info">
+          <div class="review-title">${r.topicoNome}</div>
+          <div class="review-sub">${r.materiaNome} · revisão ${stage} de 4 (intervalo: ${r.intervaloDias} dias)</div>
         </div>
+        <span class="badge due">REVISAR HOJE</span>
+        <button class="btn sm primary" onclick="doneReview('${r.id}')">✓ Feita</button>
       </div>`;
     }).join('');
   } catch (error) {
@@ -271,29 +290,18 @@ async function renderRevisao() {
   }
 }
 
-function toggleReviewNotes(id) {
-  const el = document.getElementById(id);
-  if (el) {
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
-  }
-}
-
 async function doneReview(id) {
   try {
-    const res = await fetch(`${API_URL}/api/revisoes/${id}/concluir`, {
-      method: 'PUT'
-    });
+    const res = await fetch(`${API_URL}/api/revisoes/${id}/concluir`, { method: 'PUT' });
     if (res.ok) {
       renderRevisao();
-    } else {
-      alert("Falha ao concluir revisão.");
     }
   } catch (error) {
     console.error("Erro ao concluir revisão:", error);
   }
 }
 
-// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
+// ─── SESSÃO DE HOJE ───────────────────────────────────────────────────────────
 async function renderHoje() {
   document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
   const sel = document.getElementById('session-mat');
@@ -324,39 +332,56 @@ async function loadSessionTopics() {
 
     if(!topicos.length) { el.innerHTML='<div class="empty">Nenhum assunto cadastrado nesta matéria</div>'; return; }
     
-    el.innerHTML = topicos.map(t=>`
+    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
+
+    el.innerHTML = topicos.map(t => {
+      const idNum = parseInt(t.id);
+      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(idNum);
+      const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
+      
+      return `
       <div class="topic-row">
-        <!-- Riscado se já estiver concluído, com checkbox desabilitado, exatamente como no seu print -->
-        <input type="checkbox" class="topic-check-db" value="${t.id}" ${t.concluido ? 'checked disabled' : ''} style="width: 18px; height: 18px; accent-color: var(--accent);">
-        <div class="topic-name ${t.concluido ? 'done' : ''}">${t.nome}</div>
-        ${t.concluido && t.dataConclusao ? `<span style="font-size:11px;color:var(--muted);">${dateStr(t.dataConclusao)}</span>` : ''}
-      </div>`).join('');
+        <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" 
+             id="check-${t.id}" 
+             onclick="${jaConcluido ? '' : `toggleTopicLocal('${t.id}')`}"></div>
+        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">${t.nome}</div>
+        ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
+      </div>`;
+    }).join('');
   } catch (error) {
     console.error("Erro ao carregar tópicos:", error);
+  }
+}
+
+function toggleTopicLocal(topicId) {
+  const checkEl = document.getElementById(`check-${topicId}`);
+  const nameEl = document.getElementById(`name-${topicId}`);
+  const idNum = parseInt(topicId);
+  
+  if (checkEl.classList.contains('checked')) {
+    checkEl.classList.remove('checked');
+    nameEl.classList.remove('done');
+    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
+  } else {
+    checkEl.classList.add('checked');
+    nameEl.classList.add('done');
+    topicosSelecionadosLocalmente.push(idNum);
   }
 }
 
 async function saveSession() {
   const matId = document.getElementById('session-mat').value;
   if(!matId) { alert('Selecione uma matéria.'); return; }
-  
   const notes = document.getElementById('session-notes').value.trim();
-  const selectedTopicIds = [];
   
-  document.querySelectorAll('.topic-check-db:checked').forEach(cb => {
-    if(!cb.disabled) {
-      selectedTopicIds.push(parseInt(cb.value));
-    }
-  });
-
-  if(selectedTopicIds.length === 0) {
-    alert("Selecione pelo menos um tópico para salvar a sessão de estudos.");
+  if(topicosSelecionadosLocalmente.length === 0) {
+    alert("Selecione pelo menos um tópico concluído para salvar a sessão.");
     return;
   }
 
   const sessaoDTO = {
     materiaId: parseInt(matId),
-    topicosIds: selectedTopicIds,
+    topicosIds: topicosSelecionadosLocalmente,
     anotacoes: notes
   };
 
@@ -368,44 +393,85 @@ async function saveSession() {
     });
 
     if (res.ok) {
-      alert("Sessão salva! Suas revisões foram agendadas automaticamente na Curva de Ebbinghaus! 🧠🎯");
+      // Salva localmente para persistência impecável entre as abas
+      const salvosGerais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
+      topicosSelecionadosLocalmente.forEach(id => {
+        if (!salvosGerais.includes(id)) {
+          salvosGerais.push(id);
+        }
+      });
+      localStorage.setItem('studyos_v2_concluidos_local', JSON.stringify(salvosGerais));
+
       document.getElementById('session-notes').value = '';
-      renderHoje();
+      
+      const materiaSelecionada = state.materias.find(m => m.id == matId);
+      const nomesDosTopicos = [];
+      
+      try {
+        const resT = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
+        const topicosMat = await resT.json();
+        topicosMat.forEach(t => {
+          if (topicosSelecionadosLocalmente.includes(parseInt(t.id))) {
+            nomesDosTopicos.push(t.nome);
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+
+      const novaSessaoLocal = {
+        id: Date.now() + '',
+        dataSessao: today(),
+        materiaNome: materiaSelecionada ? materiaSelecionada.nome : "Matéria",
+        topicosNomes: nomesDosTopicos,
+        anotacoes: notes
+      };
+
+      const historicoCache = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
+      historicoCache.push(novaSessaoLocal);
+      localStorage.setItem('studyos_v2_sessions_local', JSON.stringify(historicoCache));
+
+      topicosSelecionadosLocalmente = [];
+      
+      renderDashboard();
+      renderHoje(); 
     } else {
-      alert("Erro ao salvar sessão no servidor.");
+      alert("Erro ao salvar sessão no banco. Verifique os logs do seu Spring Boot!");
     }
   } catch (error) {
-    console.error("Erro de conexão ao salvar sessão:", error);
+    console.error("Erro ao salvar sessão:", error);
   }
 }
 
-// ─── RENDERS ADICIONAIS DE HISTÓRICO ──────────────────────────────────────────
-async function renderHistoricoSessoes() {
+function renderHistoricoSessoes() {
   const hist = document.getElementById('session-history');
-  try {
-    const res = await fetch(`${API_URL}/api/sessoes`);
-    const sessoes = await res.json();
-    
-    if(!sessoes.length) { 
-      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada</div>'; 
-      return; 
-    }
-    
-    const sessoesInvertidas = [...sessoes].reverse();
-    hist.innerHTML = sessoesInvertidas.map(s => {
-      const topicosList = s.topicosNomes || [];
-      return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">${dateStr(s.dataSessao)}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);">${s.materiaNome}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${topicosList.join(', ')}</div>
-          ${s.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${s.anotacoes}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
-  } catch (e) {
-    hist.innerHTML = '<div class="empty">Nenhuma sessão registrada</div>';
+  const sessoesLocais = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
+  
+  if(!sessoesLocais.length) { 
+    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada</div>'; 
+    return; 
   }
+  
+  const sessoesInvertidas = [...sessoesLocais].reverse();
+  hist.innerHTML = sessoesInvertidas.map(s => {
+    const topicosList = s.topicosNomes || [];
+    return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">${dateStr(s.dataSessao)}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${s.materiaNome}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${topicosList.join(', ')}</div>
+        ${s.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${s.anotacoes}</div>` : ''}
+      </div>
+      <button class="btn sm danger" onclick="deleteSessionLocal('${s.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteSessionLocal(id) {
+  let sessoesLocais = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
+  sessoesLocais = sessoesLocais.filter(s => s.id !== id);
+  localStorage.setItem('studyos_v2_sessions_local', JSON.stringify(sessoesLocais));
+  renderHoje();
 }
 
 // ─── QUESTÕES (Local em localStorage) ──────────────────────────────────────────

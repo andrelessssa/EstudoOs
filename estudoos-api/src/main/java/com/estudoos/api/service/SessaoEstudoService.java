@@ -1,7 +1,9 @@
 package com.estudoos.api.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,15 +45,16 @@ public class SessaoEstudoService {
         Materia materia = materiaRepository.findById(dto.materiaId())
                 .orElseThrow(() -> new RuntimeException("Matéria não encontrada com o ID: " + dto.materiaId()));
 
-        // 2. Cria e salva o Histórico da Sessão com as suas Notas Rápidas
+        // 2. Cria o Histórico da Sessão com as suas Notas Rápidas
         SessaoEstudo sessao = new SessaoEstudo();
         sessao.setDataSessao(LocalDate.now());
         sessao.setAnotacoes(dto.anotacoes());
         sessao.setMateria(materia);
-        sessaoEstudoRepository.save(sessao);
 
         // 3. Atualiza os Tópicos que você marcou como concluídos hoje e agenda as revisões
         List<Long> topicosIds = dto.topicosConcluidosIds();
+        List<Topico> topicosEstudados = new ArrayList<>();
+
         if (topicosIds != null && !topicosIds.isEmpty()) {
             for (Long idTopico : topicosIds) {
                 Topico topico = topicoRepository.findById(idTopico)
@@ -61,6 +64,9 @@ public class SessaoEstudoService {
                 topico.setConcluido(true);
                 topico.setDataConclusao(LocalDate.now());
                 topicoRepository.save(topico);
+
+                // Adiciona o tópico à lista desta sessão
+                topicosEstudados.add(topico);
 
                 // 🔁 MÁGICA: Gera os agendamentos da Curva de Ebbinghaus para esse assunto
                 for (int i = 0; i < INTERVALOS_REVISAO.length; i++) {
@@ -77,5 +83,20 @@ public class SessaoEstudoService {
                 }
             }
         }
+
+        // 🔗 Vincula os tópicos estudados na sessão física e salva
+        sessao.setTopicos(topicosEstudados);
+        sessaoEstudoRepository.save(sessao);
+    }
+
+  @Transactional(readOnly = true)
+    public List<SessaoDTO> listarTodas() {
+        return sessaoEstudoRepository.findAll().stream()
+                .map(sessao -> new SessaoDTO(
+                        sessao.getMateria().getId(),                             // 1. materiaId
+                        sessao.getAnotacoes(),                                   // 2. anotacoes
+                        sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()) // 3. topicosConcluidosIds
+                ))
+                .collect(Collectors.toList());
     }
 }
