@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estudando — Concurso Público</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="nav">
+  <div class="logo">Estudo<span>OS</span></div>
+  <div class="tab active" onclick="showPage('dashboard')">📊 Painel</div>
+  <div class="tab" onclick="showPage('materias')">📚 Matérias</div>
+  <div class="tab" onclick="showPage('hoje')">📅 Hoje</div>
+  <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
+  <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
+  <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+</div>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="page-dashboard" class="page active">
+  <div class="section-header" style="margin-bottom:1.25rem;">
+    <div>
+      <div style="font-size:20px;font-weight:700;">Bom estudo, André! 👋</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px;" id="dash-date"></div>
+    </div>
+    <button class="btn primary" onclick="showPage('hoje')">Ver sessão de hoje →</button>
+  </div>
+
+  <div class="grid-4" style="margin-bottom:1rem;">
+    <div class="stat">
+      <div class="stat-label">Assuntos estudados</div>
+      <div class="stat-value accent" id="dash-studied">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Questões acertadas</div>
+      <div class="stat-value green" id="dash-correct">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Taxa de acerto</div>
+      <div class="stat-value amber" id="dash-rate">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Revisões pendentes</div>
+      <div class="stat-value coral" id="dash-reviews">0</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:1rem;">
+    <div class="card">
+      <div class="card-title">Progresso por matéria</div>
+      <div id="dash-progress-list"><div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="cal-title">Calendário</div>
+      <div id="dash-calendar"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Desempenho por matéria</div>
+    <div id="dash-perf-list"><div class="empty"><div class="empty-icon">✏️</div>Responda questões para ver o desempenho</div></div>
+  </div>
+</div>
+
+<!-- ═══ MATÉRIAS ═══ -->
+<div id="page-materias" class="page">
+  <div class="section-header">
+    <div class="section-title">Matérias &amp; Assuntos</div>
+    <button class="btn primary" onclick="openAddMateria()">+ Nova matéria</button>
+  </div>
+
+  <div id="materias-panel" style="display:none;" class="panel">
+    <div class="form-group">
+      <label>Nome da matéria</label>
+      <input id="mat-name" placeholder="ex: Banco de Dados" />
+    </div>
+    <div class="form-group">
+      <label>Assuntos (um por linha)</label>
+      <textarea id="mat-topics" rows="6" placeholder="SQL&#10;Modelagem ER&#10;Normalização&#10;Transações&#10;Índices&#10;..."></textarea>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn primary" onclick="saveMateria()">Salvar</button>
+      <button class="btn" onclick="closeMateriaPanel()">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="materias-list"><div class="empty"><div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda</div></div>
+</div>
+
+<!-- ═══ HOJE ═══ -->
+<div id="page-hoje" class="page">
+  <div class="section-header">
+    <div>
+      <div class="section-title">Sessão de Hoje</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:2px;" id="hoje-date"></div>
+    </div>
+    <select id="session-mat" style="width:auto;" onchange="loadSessionTopics()">
+      <option value="">Selecionar matéria...</option>
+    </select>
+  </div>
+
+  <div class="grid-2" style="margin-bottom:1rem;">
+    <div class="card">
+      <div class="card-title">Assuntos da sessão</div>
+      <div id="session-topics-list"><div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Notas rápidas da sessão</div>
+      <textarea id="session-notes" rows="6" placeholder="Anote pontos importantes, dúvidas, lembretes..."></textarea>
+      <div style="margin-top:.75rem;display:flex;gap:.5rem;">
+        <button class="btn primary sm" onclick="saveSession()">💾 Salvar sessão</button>
+        <button class="btn sm" onclick="document.getElementById('session-notes').value=''">Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Histórico de sessões</div>
+    <div id="session-history"><div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada</div></div>
+  </div>
+</div>
+
+<!-- ═══ REVISÃO ═══ -->
+<div id="page-revisao" class="page">
+  <div class="section-header">
+    <div class="section-title">Revisão Espaçada</div>
+    <div style="font-size:12px;color:var(--muted);">Curva de Ebbinghaus: 3 → 7 → 15 → 30 dias</div>
+  </div>
+
+  <div class="grid-3" style="margin-bottom:1rem;">
+    <div class="stat">
+      <div class="stat-label">Para revisar hoje</div>
+      <div class="stat-value coral" id="rev-today">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Próximos 7 dias</div>
+      <div class="stat-value amber" id="rev-week">0</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Revisões feitas</div>
+      <div class="stat-value green" id="rev-done">0</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Fila de revisão</div>
+    <div id="review-list"><div class="empty"><div class="empty-icon">🔁</div>Nenhuma revisão pendente — continue estudando!</div></div>
+  </div>
+</div>
+
+<!-- ═══ QUESTÕES ═══ -->
+<div id="page-questoes" class="page">
+  <div class="section-header">
+    <div class="section-title">Banco de Questões</div>
+    <button class="btn primary" onclick="openAddQuestion()">+ Adicionar questão</button>
+  </div>
+
+  <div id="question-panel" style="display:none;" class="panel">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Matéria</label>
+        <select id="q-mat" onchange="updateQTopics()"></select>
+      </div>
+      <div class="form-group">
+        <label>Assunto</label>
+        <select id="q-topic"><option value="">Selecione a matéria primeiro</option></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Enunciado da questão</label>
+      <textarea id="q-text" rows="3" placeholder="Cole ou escreva a questão aqui..."></textarea>
+    </div>
+    <div style="margin-bottom:.75rem;">
+      <label style="margin-bottom:.5rem;">Alternativas (marque o rádio da correta)</label>
+      <div id="q-options-input"></div>
+      <button class="btn sm" onclick="addOption()" style="margin-top:.4rem;">+ Alternativa</button>
+    </div>
+    <div class="form-group">
+      <label>Gabarito comentado (opcional)</label>
+      <textarea id="q-comment" rows="2" placeholder="Explicação da resposta..."></textarea>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+      <button class="btn primary" onclick="saveQuestion()">Salvar questão</button>
+      <button class="btn" onclick="closeQuestionPanel()">Cancelar</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+    <select id="filter-mat" style="width:auto;" onchange="renderQuestoes()">
+      <option value="">Todas as matérias</option>
+    </select>
+    <select id="filter-result" style="width:auto;" onchange="renderQuestoes()">
+      <option value="">Todos resultados</option>
+      <option value="correct">Acertos</option>
+      <option value="wrong">Erros</option>
+      <option value="pending">Não respondidas</option>
+    </select>
+  </div>
+
+  <div id="questions-list"><div class="empty"><div class="empty-icon">✏️</div>Nenhuma questão cadastrada ainda</div></div>
+</div>
+
+<!-- ═══ POMODORO ═══ -->
+<div id="page-pomodoro" class="page">
+  <div class="section-header">
+    <div class="section-title">Timer Pomodoro</div>
+    <div style="font-size:12px;color:var(--muted);">25 min foco · 5 min pausa</div>
+  </div>
+
+  <div style="max-width:400px;margin:0 auto;">
+    <div class="card" style="text-align:center;padding:2rem 1.5rem;">
+      <div style="display:flex;gap:.5rem;justify-content:center;margin-bottom:1.5rem;">
+        <button class="btn sm" id="pomo-mode-work" onclick="setPomoMode('work')" style="border-color:var(--accent);color:var(--accent);">🎯 Foco 25min</button>
+        <button class="btn sm" id="pomo-mode-short" onclick="setPomoMode('short')">☕ Pausa 5min</button>
+        <button class="btn sm" id="pomo-mode-long" onclick="setPomoMode('long')">🛌 Longa 15min</button>
+      </div>
+
+      <div class="pomo-circle" id="pomo-circle">
+        <div class="pomo-time" id="pomo-display">25:00</div>
+        <div class="pomo-label" id="pomo-label">FOCO</div>
+      </div>
+
+      <div style="display:flex;gap:.75rem;justify-content:center;margin-bottom:1.5rem;">
+        <button class="btn primary" id="pomo-btn" onclick="togglePomo()">▶ Iniciar</button>
+        <button class="btn" onclick="resetPomo()">↺ Resetar</button>
+      </div>
+
+      <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem;">
+        <div class="stat-label" style="margin-bottom:.5rem;">Sessões completadas hoje</div>
+        <div style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--green);" id="pomo-count">0</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">Técnica de estudo ativa</div>
+      <select id="pomo-technique" style="margin-bottom:.75rem;">
+        <option>Resumo Ativo</option>
+        <option>Mapa Mental</option>
+        <option>Questões de Prova</option>
+        <option>Flashcards Anki</option>
+        <option>Leitura Focada</option>
+        <option>Produção Textual</option>
+      </select>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;" id="technique-tip">
+        Leia o material, depois feche e escreva os pontos principais com suas palavras. Repita até conseguir reproduzir sem olhar.
+      </div>
+    </div>
+  </div>
+</div>
+  <script src="script.js"></script>
+</body>
+</html>
