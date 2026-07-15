@@ -52,8 +52,6 @@ async function renderDashboard() {
     const resRev = await fetch(`${API_URL}/api/revisoes/hoje`);
     const revisoesHoje = await resRev.json();
 
-    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
-
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
         const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
@@ -68,7 +66,7 @@ async function renderDashboard() {
     materiasComTopicos.forEach(m => {
       const lista = m.topicos || [];
       lista.forEach(t => { 
-        const estaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(parseInt(t.id));
+        const estaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
         if(estaConcluido) {
           studied++; 
         }
@@ -91,7 +89,7 @@ async function renderDashboard() {
       pl.innerHTML = materiasComTopicos.map((m, i) => {
         const lista = m.topicos || [];
         const tot = lista.length;
-        const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(parseInt(t.id))).length;
+        const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true).length;
         const pct = tot ? Math.round(done/tot*100) : 0;
         const color = m.cor || COLORS[i % COLORS.length];
         
@@ -184,8 +182,6 @@ async function renderMaterias() {
       return;
     }
 
-    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
-
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
         const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
@@ -198,12 +194,10 @@ async function renderMaterias() {
 
     el.innerHTML = materiasComTopicos.map((m, i) => {
       const listaTopicos = m.topicos || [];
-      
       const done = listaTopicos.filter(t => 
         t.concluido === true || 
         t.concluido === 'true' || 
-        t.done === true ||
-        concluidosLocais.includes(parseInt(t.id))
+        t.done === true
       ).length;
       
       const tot = listaTopicos.length;
@@ -224,8 +218,7 @@ async function renderMaterias() {
           ${listaTopicos.length ? listaTopicos.map(t => {
             const jaConcluido = t.concluido === true || 
                                 t.concluido === 'true' || 
-                                t.done === true ||
-                                concluidosLocais.includes(parseInt(t.id));
+                                t.done === true;
             
             return `
             <div class="topic-row">
@@ -332,11 +325,9 @@ async function loadSessionTopics() {
 
     if(!topicos.length) { el.innerHTML='<div class="empty">Nenhum assunto cadastrado nesta matéria</div>'; return; }
     
-    const concluidosLocais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
-
     el.innerHTML = topicos.map(t => {
       const idNum = parseInt(t.id);
-      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true || concluidosLocais.includes(idNum);
+      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
       const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
       
       return `
@@ -381,7 +372,7 @@ async function saveSession() {
 
   const sessaoDTO = {
     materiaId: parseInt(matId),
-    topicosIds: topicosSelecionadosLocalmente,
+    topicosConcluidosIds: topicosSelecionadosLocalmente, 
     anotacoes: notes
   };
 
@@ -393,46 +384,10 @@ async function saveSession() {
     });
 
     if (res.ok) {
-      // Salva localmente para persistência impecável entre as abas
-      const salvosGerais = JSON.parse(localStorage.getItem('studyos_v2_concluidos_local') || '[]');
-      topicosSelecionadosLocalmente.forEach(id => {
-        if (!salvosGerais.includes(id)) {
-          salvosGerais.push(id);
-        }
-      });
-      localStorage.setItem('studyos_v2_concluidos_local', JSON.stringify(salvosGerais));
-
       document.getElementById('session-notes').value = '';
-      
-      const materiaSelecionada = state.materias.find(m => m.id == matId);
-      const nomesDosTopicos = [];
-      
-      try {
-        const resT = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
-        const topicosMat = await resT.json();
-        topicosMat.forEach(t => {
-          if (topicosSelecionadosLocalmente.includes(parseInt(t.id))) {
-            nomesDosTopicos.push(t.nome);
-          }
-        });
-      } catch (e) {
-        console.error(e);
-      }
-
-      const novaSessaoLocal = {
-        id: Date.now() + '',
-        dataSessao: today(),
-        materiaNome: materiaSelecionada ? materiaSelecionada.nome : "Matéria",
-        topicosNomes: nomesDosTopicos,
-        anotacoes: notes
-      };
-
-      const historicoCache = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
-      historicoCache.push(novaSessaoLocal);
-      localStorage.setItem('studyos_v2_sessions_local', JSON.stringify(historicoCache));
-
       topicosSelecionadosLocalmente = [];
       
+      // 🚀 Atualiza e reconstrói as listas de forma silenciosa e limpa
       renderDashboard();
       renderHoje(); 
     } else {
@@ -443,35 +398,50 @@ async function saveSession() {
   }
 }
 
-function renderHistoricoSessoes() {
+// ─── HISTÓRICO DE SESSÕES (Direto do PostgreSQL - FILTRADO POR HOJE) ──────────────
+async function renderHistoricoSessoes() {
   const hist = document.getElementById('session-history');
-  const sessoesLocais = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
   
-  if(!sessoesLocais.length) { 
-    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada</div>'; 
-    return; 
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes`);
+    if (!res.ok) throw new Error("Erro ao carregar sessões");
+    
+    const sessoesDoBanco = await res.json();
+    const todayStr = today(); // 🟢 Pega o dia atual (ex: 2026-07-15)
+    
+    // 🎯 FILTRO CRUCIAL: Retém APENAS os registros que combinam com o dia de HOJE!
+    const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
+    
+    if (!sessoesDeHoje || !sessoesDeHoje.length) { 
+      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>'; 
+      return; 
+    }
+    
+    const sessoesInvertidas = [...sessoesDeHoje].reverse();
+
+    hist.innerHTML = sessoesInvertidas.map(s => {
+      const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(today());
+      const materiaObj = state.materias.find(m => m.id == s.materiaId);
+      const materiaNome = materiaObj ? materiaObj.nome : `Matéria (ID: ${s.materiaId})`;
+
+      return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
+          ${s.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${s.anotacoes}</div>` : ''}
+        </div>
+        <button class="btn sm danger" onclick="deleteSessionLocal('${s.materiaId}')">✕</button>
+      </div>`;
+    }).join('');
+
+  } catch (error) {
+    console.error("Erro ao renderizar histórico:", error);
+    hist.innerHTML = '<div class="empty">Erro ao conectar com o banco de dados</div>';
   }
-  
-  const sessoesInvertidas = [...sessoesLocais].reverse();
-  hist.innerHTML = sessoesInvertidas.map(s => {
-    const topicosList = s.topicosNomes || [];
-    return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">${dateStr(s.dataSessao)}</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;color:var(--text);">${s.materiaNome}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">${topicosList.join(', ')}</div>
-        ${s.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${s.anotacoes}</div>` : ''}
-      </div>
-      <button class="btn sm danger" onclick="deleteSessionLocal('${s.id}')">✕</button>
-    </div>`;
-  }).join('');
 }
 
 function deleteSessionLocal(id) {
-  let sessoesLocais = JSON.parse(localStorage.getItem('studyos_v2_sessions_local') || '[]');
-  sessoesLocais = sessoesLocais.filter(s => s.id !== id);
-  localStorage.setItem('studyos_v2_sessions_local', JSON.stringify(sessoesLocais));
-  renderHoje();
+  alert("Para remover registros permanentes, exclua diretamente no banco de dados ou implemente o endpoint DELETE no Java!");
 }
 
 // ─── QUESTÕES (Local em localStorage) ──────────────────────────────────────────
@@ -595,34 +565,6 @@ function renderQuestoes() {
       ${q.answeredIdx !== null && q.comment ? `<div style="font-size:12px;color:var(--muted);background:var(--surface2);padding:.65rem .85rem;border-radius:var(--radius);margin-top:.5rem;line-height:1.5;">💡 ${q.comment}</div>` : ''}
     </div>`;
   }).join('');
-}
-
-function answerQ(qId, idx) {
-  const q = state.questions.find(x=>x.id===qId);
-  if(q.answeredIdx !== null) return;
-  q.answeredIdx = idx;
-  q.result = idx === q.correctIdx ? 'correct' : 'wrong';
-  localStorage.setItem('studyos_v2_questions', JSON.stringify(state.questions));
-  renderQuestoes();
-}
-function markQ(qId, result) {
-  const q = state.questions.find(x=>x.id===qId);
-  q.result = result;
-  q.answeredIdx = result === 'correct' ? 0 : -1;
-  localStorage.setItem('studyos_v2_questions', JSON.stringify(state.questions));
-  renderQuestoes();
-}
-function resetQ(qId) {
-  const q = state.questions.find(x=>x.id===qId);
-  q.result = null; q.answeredIdx = null;
-  localStorage.setItem('studyos_v2_questions', JSON.stringify(state.questions));
-  renderQuestoes();
-}
-function deleteQuestion(id) {
-  if(!confirm('Remover esta questão?')) return;
-  state.questions = state.questions.filter(q=>q.id!==id);
-  localStorage.setItem('studyos_v2_questions', JSON.stringify(state.questions));
-  renderQuestoes();
 }
 
 // ─── POMODORO (Local) ─────────────────────────────────────────────────────────

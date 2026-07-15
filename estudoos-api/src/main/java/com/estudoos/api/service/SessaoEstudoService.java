@@ -27,12 +27,12 @@ public class SessaoEstudoService {
     private final RevisaoRepository revisaoRepository;
 
     // Matrizes de intervalos fixos da Curva de Ebbinghaus (3, 7, 15, 30 dias)
-    private static final int[] INTERVALOS_REVISAO = {3, 7, 15, 30};
+    private static final int[] INTERVALOS_REVISAO = { 3, 7, 15, 30 };
 
     public SessaoEstudoService(SessaoEstudoRepository sessaoEstudoRepository,
-                               MateriaRepository materiaRepository,
-                               TopicoRepository topicoRepository,
-                               RevisaoRepository revisaoRepository) {
+            MateriaRepository materiaRepository,
+            TopicoRepository topicoRepository,
+            RevisaoRepository revisaoRepository) {
         this.sessaoEstudoRepository = sessaoEstudoRepository;
         this.materiaRepository = materiaRepository;
         this.topicoRepository = topicoRepository;
@@ -51,7 +51,8 @@ public class SessaoEstudoService {
         sessao.setAnotacoes(dto.anotacoes());
         sessao.setMateria(materia);
 
-        // 3. Atualiza os Tópicos que você marcou como concluídos hoje e agenda as revisões
+        // 3. Atualiza os Tópicos que você marcou como concluídos hoje e agenda as
+        // revisões
         List<Long> topicosIds = dto.topicosConcluidosIds();
         List<Topico> topicosEstudados = new ArrayList<>();
 
@@ -59,7 +60,7 @@ public class SessaoEstudoService {
             for (Long idTopico : topicosIds) {
                 Topico topico = topicoRepository.findById(idTopico)
                         .orElseThrow(() -> new RuntimeException("Tópico não encontrado com o ID: " + idTopico));
-                
+
                 // Marca o assunto como batido no edital
                 topico.setConcluido(true);
                 topico.setDataConclusao(LocalDate.now());
@@ -71,14 +72,14 @@ public class SessaoEstudoService {
                 // 🔁 MÁGICA: Gera os agendamentos da Curva de Ebbinghaus para esse assunto
                 for (int i = 0; i < INTERVALOS_REVISAO.length; i++) {
                     int diasNoFuturo = INTERVALOS_REVISAO[i];
-                    
+
                     Revisao revisao = new Revisao();
                     revisao.setDataAgendada(LocalDate.now().plusDays(diasNoFuturo)); // Calcula a data futura
                     revisao.setIntervaloDias(diasNoFuturo);
                     revisao.setEtapa(i + 1); // 1ª, 2ª, 3ª ou 4ª revisão
                     revisao.setFeita(false); // Começa pendente para o futuro
                     revisao.setTopico(topico);
-                    
+
                     revisaoRepository.save(revisao); // Grava a linha de alerta no banco
                 }
             }
@@ -89,13 +90,15 @@ public class SessaoEstudoService {
         sessaoEstudoRepository.save(sessao);
     }
 
-  @Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<SessaoDTO> listarTodas() {
         return sessaoEstudoRepository.findAll().stream()
                 .map(sessao -> new SessaoDTO(
-                        sessao.getMateria().getId(),                             // 1. materiaId
-                        sessao.getAnotacoes(),                                   // 2. anotacoes
-                        sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()) // 3. topicosConcluidosIds
+                        sessao.getMateria().getId(), // 1. materiaId
+                        sessao.getAnotacoes(), // 2. anotacoes
+                        sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()), // 3.
+                                                                                                      // topicosConcluidosIds
+                        sessao.getDataSessao() // 4. dataSessao vinda do banco!
                 ))
                 .collect(Collectors.toList());
     }
