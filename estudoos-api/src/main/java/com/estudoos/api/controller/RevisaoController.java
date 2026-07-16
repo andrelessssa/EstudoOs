@@ -34,4 +34,8 @@ public class RevisaoController {
         revisaoService.concluirRevisao(id);
         return ResponseEntity.ok("Revisão concluída! Menos um conteúdo para esquecer. 🧠✓");
     }
+    @GetMapping("/estatisticas")
+    public ResponseEntity<java.util.Map<String, Long>> obterEstatisticas() {
+        return ResponseEntity.ok(revisaoService.obterEstatisticasRevisao());
+    }
 }

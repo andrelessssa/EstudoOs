@@ -2,7 +2,7 @@
 const API_URL = ''; // Como as telas estão na pasta static, a URL é relativa
 
 // ─── CORES ───────────────────────────────────────────────────────────────────
-const COLORS = ['#6c7bff','#34d399','#fbbf24','#f87171','#c084fc','#2dd4bf','#fb7185','#60a5fa','#a3e635','#f97316'];
+const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf', '#fb7185', '#60a5fa', '#a3e635', '#f97316'];
 
 // ─── STATE LOCAL ─────────────────────────────────────────────────────────────
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
@@ -13,10 +13,10 @@ function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
-  const pages = ['dashboard','materias','hoje','revisao','questoes','pomodoro'];
+  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro'];
   const idx = pages.indexOf(id);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
-  
+
   if (id === 'dashboard') renderDashboard();
   if (id === 'materias') renderMaterias();
   if (id === 'hoje') renderHoje();
@@ -33,24 +33,29 @@ function toggleTopics(id) {
 }
 
 // ─── DATAS (Fuso Horário Local) ──────────────────────────────────────────────
-function today() { 
+function today() {
   const d = new Date();
   const offset = d.getTimezoneOffset();
   const localDate = new Date(d.getTime() - (offset * 60 * 1000));
-  return localDate.toISOString().split('T')[0]; 
+  return localDate.toISOString().split('T')[0];
 }
-function dateStr(d) { return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'}); }
+function dateStr(d) { return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
 
 // ─── DASHBOARD (PAINEL PRINCIPAL) ─────────────────────────────────────────────
 async function renderDashboard() {
-  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  
-  try {
-    const resMat = await fetch(`${API_URL}/api/materias`);
-    state.materias = await resMat.json();
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    const resRev = await fetch(`${API_URL}/api/revisoes/hoje`);
+  try {
+    // 1. Buscas paralelas trazendo os dados das matérias, revisões e as datas do banco! 🚀
+    const [resMat, resRev, resDias] = await Promise.all([
+      fetch(`${API_URL}/api/materias`),
+      fetch(`${API_URL}/api/revisoes/hoje`),
+      fetch(`${API_URL}/api/sessoes/calendario/estudados`) // 🟢 Rota correta e mapeada na SessaoEstudoController!
+    ]);
+
+    state.materias = await resMat.json();
     const revisoesHoje = await resRev.json();
+    const diasEstudadosNoBanco = await resDias.json(); // Array de Strings (ex: ["2026-07-15", "2026-07-16"])
 
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
@@ -65,17 +70,17 @@ async function renderDashboard() {
     let studied = 0;
     materiasComTopicos.forEach(m => {
       const lista = m.topicos || [];
-      lista.forEach(t => { 
+      lista.forEach(t => {
         const estaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
-        if(estaConcluido) {
-          studied++; 
+        if (estaConcluido) {
+          studied++;
         }
       });
     });
-    
-    const correct = state.questions.filter(q=>q.result==='correct').length;
-    const total = state.questions.filter(q=>q.result).length;
-    const rate = total ? Math.round(correct/total*100)+'%' : '—';
+
+    const correct = state.questions.filter(q => q.result === 'correct').length;
+    const total = state.questions.filter(q => q.result).length;
+    const rate = total ? Math.round(correct / total * 100) + '%' : '—';
 
     document.getElementById('dash-studied').textContent = studied;
     document.getElementById('dash-correct').textContent = correct;
@@ -90,9 +95,9 @@ async function renderDashboard() {
         const lista = m.topicos || [];
         const tot = lista.length;
         const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true).length;
-        const pct = tot ? Math.round(done/tot*100) : 0;
+        const pct = tot ? Math.round(done / tot * 100) : 0;
         const color = m.cor || COLORS[i % COLORS.length];
-        
+
         return `<div style="margin-bottom:.85rem;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
             <span style="font-size:13px;font-weight:500;">${m.nome}</span>
@@ -105,21 +110,40 @@ async function renderDashboard() {
       }).join('');
     }
 
+    // ─── RENDEREZAÇÃO DO CALENDÁRIO COM HISTÓRICO DO POSTGRESQL 📅 ───
     const cal = document.getElementById('dash-calendar');
     const now = new Date();
-    const year = now.getFullYear(); const month = now.getMonth();
-    document.getElementById('cal-title').textContent = now.toLocaleDateString('pt-BR',{month:'long',year:'numeric'}).replace(/^\w/, c=>c.toUpperCase());
+    const year = now.getFullYear();
+    const month = now.getMonth();
+
+    document.getElementById('cal-title').textContent = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
+
     const first = new Date(year, month, 1).getDay();
-    const days = new Date(year, month+1, 0).getDate();
+    const days = new Date(year, month + 1, 0).getDate();
     const todayStr = today();
-    const headers = ['D','S','T','Q','Q','S','S'];
-    let html = `<div class="cal-grid" style="margin-bottom:6px;">${headers.map(h=>`<div style="text-align:center;font-size:10px;color:var(--muted);padding:4px 0;">${h}</div>`).join('')}</div><div class="cal-grid">`;
-    for(let i=0;i<first;i++) html += `<div class="cal-day empty"></div>`;
-    for(let d=1;d<=days;d++) {
-      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const isToday = ds===todayStr;
+    const headers = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+    // Normalização das datas vindas do Java para evitar qualquer divergência de formato string
+    const datasLimpasDoBanco = diasEstudadosNoBanco.map(d => d ? d.substring(0, 10) : '');
+
+    let html = `<div class="cal-grid" style="margin-bottom:6px;">${headers.map(h => `<div style="text-align:center;font-size:10px;color:var(--muted);padding:4px 0;">${h}</div>`).join('')}</div><div class="cal-grid">`;
+
+    for (let i = 0; i < first; i++) html += `<div class="cal-day empty"></div>`;
+
+    for (let d = 1; d <= days; d++) {
+      const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const isToday = ds === todayStr;
+
+      // 🕵️‍♂️ Verifica se o dia atual da iteração existe na lista de dias estudados vinda do Java
+      const foiEstudado = datasLimpasDoBanco.includes(ds);
+
       let cls = 'cal-day';
-      if(isToday) cls+=' today';
+      if (isToday) {
+        cls += ' today';
+      } else if (foiEstudado) {
+        cls += ' studied'; // 🟢 Aplica a estilização de caixa cinza do seu style.css!
+      }
+
       html += `<div class="${cls}"><span class="cal-day-num">${d}</span></div>`;
     }
     html += '</div>';
@@ -142,9 +166,9 @@ function closeMateriaPanel() { document.getElementById('materias-panel').style.d
 async function saveMateria() {
   const name = document.getElementById('mat-name').value.trim();
   const topicsRaw = document.getElementById('mat-topics').value;
-  if(!name) { alert('Informe o nome da matéria.'); return; }
-  
-  const listaProcessada = topicsRaw.split('\n').map(t=>t.trim()).filter(Boolean);
+  if (!name) { alert('Informe o nome da matéria.'); return; }
+
+  const listaProcessada = topicsRaw.split('\n').map(t => t.trim()).filter(Boolean);
   const corSelecionada = COLORS[state.materias.length % COLORS.length];
 
   const materiaDTO = {
@@ -177,7 +201,7 @@ async function renderMaterias() {
     const res = await fetch(`${API_URL}/api/materias`);
     state.materias = await res.json();
 
-    if(!state.materias || !state.materias.length) {
+    if (!state.materias || !state.materias.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda</div>';
       return;
     }
@@ -194,12 +218,12 @@ async function renderMaterias() {
 
     el.innerHTML = materiasComTopicos.map((m, i) => {
       const listaTopicos = m.topicos || [];
-      const done = listaTopicos.filter(t => 
-        t.concluido === true || 
-        t.concluido === 'true' || 
+      const done = listaTopicos.filter(t =>
+        t.concluido === true ||
+        t.concluido === 'true' ||
         t.done === true
       ).length;
-      
+
       const tot = listaTopicos.length;
       const pct = tot ? Math.round(done / tot * 100) : 0;
       const color = m.cor || COLORS[i % COLORS.length];
@@ -216,17 +240,17 @@ async function renderMaterias() {
         
         <div id="tops-${m.id}" style="display:none;padding:.4rem 0 .4rem 1.5rem;">
           ${listaTopicos.length ? listaTopicos.map(t => {
-            const jaConcluido = t.concluido === true || 
-                                t.concluido === 'true' || 
-                                t.done === true;
-            
-            return `
+        const jaConcluido = t.concluido === true ||
+          t.concluido === 'true' ||
+          t.done === true;
+
+        return `
             <div class="topic-row">
               <div class="topic-check ${jaConcluido ? 'checked' : ''}" style="pointer-events: none;"></div>
               <div class="topic-name ${jaConcluido ? 'done' : ''}">${t.nome}</div>
               ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
             </div>`;
-          }).join('') : '<div style="font-size:13px;color:var(--muted);padding:.5rem .9rem;">Nenhum assunto cadastrado</div>'}
+      }).join('') : '<div style="font-size:13px;color:var(--muted);padding:.5rem .9rem;">Nenhum assunto cadastrado</div>'}
         </div>
       </div>`;
     }).join('');
@@ -236,10 +260,10 @@ async function renderMaterias() {
 }
 
 async function deleteMateria(id) {
-  if(!confirm('Remover matéria e todos os dados associados?')) return;
+  if (!confirm('Remover matéria e todos os dados associados?')) return;
   try {
     const res = await fetch(`${API_URL}/api/materias/${id}`, { method: 'DELETE' });
-    if(res.ok) {
+    if (res.ok) {
       renderMaterias();
     }
   } catch (error) {
@@ -247,35 +271,84 @@ async function deleteMateria(id) {
   }
 }
 
-// ─── REVISÃO ESPAÇADA ─────────────────────────────────────────────────────────
+// ─── REVISÃO ESPAÇADA (FILA ORDENADA LIMITADA A 10) ───────────────────────────
 async function renderRevisao() {
   const el = document.getElementById('review-list');
   try {
-    const res = await fetch(`${API_URL}/api/revisoes/hoje`);
-    const revisoesHoje = await res.json();
+    // 1. Busca os dados e as estatísticas em paralelo
+    const [resHoje, resStats] = await Promise.all([
+      fetch(`${API_URL}/api/revisoes/hoje`),
+      fetch(`${API_URL}/api/revisoes/estatisticas`)
+    ]);
 
-    document.getElementById('rev-today').textContent = revisoesHoje.length;
-    document.getElementById('rev-week').textContent = "—"; 
-    document.getElementById('rev-done').textContent = "—";
+    const revisoesFila = await resHoje.json();
+    const stats = await resStats.json();
 
-    if(!revisoesHoje.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">🔁</div>Nenhuma revisão pendente para hoje — continue estudando!</div>';
+    // 2. Atualiza os cards estatísticos superiores
+    const cardHoje = document.getElementById('rev-today');
+    const cardSemana = document.getElementById('rev-week');
+    const cardFeitas = document.getElementById('rev-done');
+
+    if (cardHoje) cardHoje.textContent = stats.hoje ?? 0;
+    if (cardSemana) cardSemana.textContent = stats.proximos7Dias ?? 0;
+    if (cardFeitas) cardFeitas.textContent = stats.feitas ?? 0;
+
+    if (!revisoesFila.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🔁</div>Nenhuma revisão agendada no sistema!</div>';
       return;
     }
 
-    const stageColors = ['#f87171','#fbbf24','#60a5fa','#34d399'];
-    el.innerHTML = revisoesHoje.map(r => {
+    const stageColors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399'];
+
+    // Pegamos a data de hoje formatada em UTC/Local para comparação justa (formato YYYY-MM-DD)
+    const hojeStr = new Date().toISOString().split('T')[0];
+
+    el.innerHTML = revisoesFila.map(r => {
       const stage = r.etapa || 1;
-      return `<div class="review-card">
-        <div class="review-icon" style="background:${stageColors[(stage-1)%4]}22;">
-          <span style="font-size:14px;font-weight:700;color:${stageColors[(stage-1)%4]};">${stage}ª</span>
+
+      // 🟢 Mapeamento exato com o seu Record/DTO Java!
+      const topico = r.nomeTopico || "Sem Assunto";
+      const materia = r.nomeMateria || "Sem Matéria";
+      const cor = r.corMateria || "#6b7280";
+      const dataAgendadaStr = r.dataAgendada;
+
+      // Define os intervalos da curva de Ebbinghaus baseados na etapa
+      const intervalo = stage === 1 ? 1 : stage === 2 ? 7 : stage === 3 ? 15 : 30;
+
+      // Se a data de agendamento for menor ou igual a hoje, está no prazo ou atrasada
+      const isDue = dataAgendadaStr <= hojeStr;
+
+      // Formatando a data do agendamento para exibir no badge (DD/MM)
+      const partesData = dataAgendadaStr.split('-');
+      const dataFormatada = partesData.length === 3 ? `${partesData[2]}/${partesData[1]}` : dataAgendadaStr;
+
+      // Badges dinâmicos
+      const badgeHTML = isDue
+        ? `<span class="badge due" style="background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">REVISAR HOJE</span>`
+        : `<span class="badge future" style="background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">AGENDADA: ${dataFormatada}</span>`;
+
+      // Botão dinâmico
+      const botaoHTML = isDue
+        ? `<button class="btn sm primary" onclick="doneReview('${r.id}')">✓ Feita</button>`
+        : `<button class="btn sm" disabled style="opacity: 0.4; cursor: not-allowed; background: var(--surface3); color: var(--muted); border: 1px solid var(--border-color);">Aguardando</button>`;
+
+      return `<div class="review-card" style="${!isDue ? 'opacity: 0.85;' : ''} display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--surface2); border: 1px solid var(--border-color); border-radius: var(--radius); margin-bottom: 0.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <div class="review-icon" style="background:${stageColors[(stage - 1) % 4]}22; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius);">
+            <span style="font-size:14px;font-weight:700;color:${stageColors[(stage - 1) % 4]};">${stage}ª</span>
+          </div>
+          <div class="review-info">
+            <div class="review-title" style="font-size: 14px; font-weight: 600; color: var(--text-primary); text-align: left;">${topico}</div>
+            <div class="review-sub" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px; text-align: left;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${cor}; margin-right: 4px;"></span>
+              ${materia} · revisão ${stage} de 4 (intervalo: ${intervalo} dias)
+            </div>
+          </div>
         </div>
-        <div class="review-info">
-          <div class="review-title">${r.topicoNome}</div>
-          <div class="review-sub">${r.materiaNome} · revisão ${stage} de 4 (intervalo: ${r.intervaloDias} dias)</div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          ${badgeHTML}
+          ${botaoHTML}
         </div>
-        <span class="badge due">REVISAR HOJE</span>
-        <button class="btn sm primary" onclick="doneReview('${r.id}')">✓ Feita</button>
       </div>`;
     }).join('');
   } catch (error) {
@@ -283,20 +356,9 @@ async function renderRevisao() {
   }
 }
 
-async function doneReview(id) {
-  try {
-    const res = await fetch(`${API_URL}/api/revisoes/${id}/concluir`, { method: 'PUT' });
-    if (res.ok) {
-      renderRevisao();
-    }
-  } catch (error) {
-    console.error("Erro ao concluir revisão:", error);
-  }
-}
-
 // ─── SESSÃO DE HOJE ───────────────────────────────────────────────────────────
 async function renderHoje() {
-  document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   const sel = document.getElementById('session-mat');
   const cur = sel.value;
 
@@ -305,8 +367,8 @@ async function renderHoje() {
     state.materias = await res.json();
 
     sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
-      state.materias.map(m=>`<option value="${m.id}" ${m.id==cur?'selected':''}>${m.nome}</option>`).join('');
-    
+      state.materias.map(m => `<option value="${m.id}" ${m.id == cur ? 'selected' : ''}>${m.nome}</option>`).join('');
+
     loadSessionTopics();
     renderHistoricoSessoes();
   } catch (error) {
@@ -317,19 +379,19 @@ async function renderHoje() {
 async function loadSessionTopics() {
   const matId = document.getElementById('session-mat').value;
   const el = document.getElementById('session-topics-list');
-  if(!matId) { el.innerHTML='<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>'; return; }
-  
+  if (!matId) { el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>'; return; }
+
   try {
     const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
     const topicos = await res.json();
 
-    if(!topicos.length) { el.innerHTML='<div class="empty">Nenhum assunto cadastrado nesta matéria</div>'; return; }
-    
+    if (!topicos.length) { el.innerHTML = '<div class="empty">Nenhum assunto cadastrado nesta matéria</div>'; return; }
+
     el.innerHTML = topicos.map(t => {
       const idNum = parseInt(t.id);
       const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
       const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
-      
+
       return `
       <div class="topic-row">
         <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" 
@@ -348,7 +410,7 @@ function toggleTopicLocal(topicId) {
   const checkEl = document.getElementById(`check-${topicId}`);
   const nameEl = document.getElementById(`name-${topicId}`);
   const idNum = parseInt(topicId);
-  
+
   if (checkEl.classList.contains('checked')) {
     checkEl.classList.remove('checked');
     nameEl.classList.remove('done');
@@ -362,17 +424,17 @@ function toggleTopicLocal(topicId) {
 
 async function saveSession() {
   const matId = document.getElementById('session-mat').value;
-  if(!matId) { alert('Selecione uma matéria.'); return; }
+  if (!matId) { alert('Selecione uma matéria.'); return; }
   const notes = document.getElementById('session-notes').value.trim();
-  
-  if(topicosSelecionadosLocalmente.length === 0) {
+
+  if (topicosSelecionadosLocalmente.length === 0) {
     alert("Selecione pelo menos um tópico concluído para salvar a sessão.");
     return;
   }
 
   const sessaoDTO = {
     materiaId: parseInt(matId),
-    topicosConcluidosIds: topicosSelecionadosLocalmente, 
+    topicosConcluidosIds: topicosSelecionadosLocalmente,
     anotacoes: notes
   };
 
@@ -386,10 +448,10 @@ async function saveSession() {
     if (res.ok) {
       document.getElementById('session-notes').value = '';
       topicosSelecionadosLocalmente = [];
-      
+
       // 🚀 Atualiza e reconstrói as listas de forma silenciosa e limpa
       renderDashboard();
-      renderHoje(); 
+      renderHoje();
     } else {
       alert("Erro ao salvar sessão no banco. Verifique os logs do seu Spring Boot!");
     }
@@ -401,22 +463,22 @@ async function saveSession() {
 // ─── HISTÓRICO DE SESSÕES (Direto do PostgreSQL - FILTRADO POR HOJE) ──────────────
 async function renderHistoricoSessoes() {
   const hist = document.getElementById('session-history');
-  
+
   try {
     const res = await fetch(`${API_URL}/api/sessoes`);
     if (!res.ok) throw new Error("Erro ao carregar sessões");
-    
+
     const sessoesDoBanco = await res.json();
     const todayStr = today(); // 🟢 Pega o dia atual (ex: 2026-07-15)
-    
+
     // 🎯 FILTRO CRUCIAL: Retém APENAS os registros que combinam com o dia de HOJE!
     const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
-    
-    if (!sessoesDeHoje || !sessoesDeHoje.length) { 
-      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>'; 
-      return; 
+
+    if (!sessoesDeHoje || !sessoesDeHoje.length) {
+      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
+      return;
     }
-    
+
     const sessoesInvertidas = [...sessoesDeHoje].reverse();
 
     hist.innerHTML = sessoesInvertidas.map(s => {
@@ -451,21 +513,21 @@ function openAddQuestion() {
   optionCount = 0;
   document.getElementById('question-panel').style.display = 'block';
   const qm = document.getElementById('q-mat');
-  qm.innerHTML = state.materias.map(m=>`<option value="${m.id}">${m.nome}</option>`).join('');
+  qm.innerHTML = state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
   updateQTopics();
   document.getElementById('q-text').value = '';
   document.getElementById('q-comment').value = '';
   document.getElementById('q-options-input').innerHTML = '';
-  [0,1,2,3].forEach(() => addOption());
+  [0, 1, 2, 3].forEach(() => addOption());
 }
 function closeQuestionPanel() { document.getElementById('question-panel').style.display = 'none'; }
 
 function updateQTopics() {
   const matId = document.getElementById('q-mat').value;
-  const m = state.materias.find(x=>x.id==matId);
+  const m = state.materias.find(x => x.id == matId);
   const lista = m ? (m.topicos || m.assuntos || m.topico || []) : [];
   document.getElementById('q-topic').innerHTML = m && lista.length
-    ? lista.map(t=>`<option value="${t.id}">${t.nome}</option>`).join('')
+    ? lista.map(t => `<option value="${t.id}">${t.nome}</option>`).join('')
     : '<option value="">Sem assuntos</option>';
 }
 
@@ -486,23 +548,23 @@ function saveQuestion() {
   const matId = document.getElementById('q-mat').value;
   const topicId = document.getElementById('q-topic').value;
   const text = document.getElementById('q-text').value.trim();
-  if(!text) { alert('Escreva o enunciado da questão.'); return; }
-  const m = state.materias.find(x=>x.id==matId);
+  if (!text) { alert('Escreva o enunciado da questão.'); return; }
+  const m = state.materias.find(x => x.id == matId);
   const lista = m ? (m.topicos || m.assuntos || m.topico || []) : [];
-  const t = lista.find(x=>x.id==topicId);
+  const t = lista.find(x => x.id == topicId);
   let correctIdx = -1;
-  document.querySelectorAll('input[name="correct-opt"]').forEach(r => { if(r.checked) correctIdx = parseInt(r.value); });
+  document.querySelectorAll('input[name="correct-opt"]').forEach(r => { if (r.checked) correctIdx = parseInt(r.value); });
   const options = [];
   let li = 0;
   document.querySelectorAll('[id^="opt-"]').forEach(inp => {
-    if(inp.value.trim()) options.push({ label: String.fromCharCode(65+li++), text: inp.value.trim() });
+    if (inp.value.trim()) options.push({ label: String.fromCharCode(65 + li++), text: inp.value.trim() });
   });
-  if(options.length && correctIdx < 0) { alert('Marque a alternativa correta.'); return; }
-  
+  if (options.length && correctIdx < 0) { alert('Marque a alternativa correta.'); return; }
+
   state.questions.push({
-    id: Date.now()+'',
-    matId, matName: m?.nome||'',
-    topicId, topicName: t?.nome||'',
+    id: Date.now() + '',
+    matId, matName: m?.nome || '',
+    topicId, topicName: t?.nome || '',
     text, options, correctIdx,
     comment: document.getElementById('q-comment').value.trim(),
     result: null, answeredIdx: null
@@ -519,44 +581,44 @@ function renderQuestoes() {
   const fm = document.getElementById('filter-mat');
   const cur = fm.value;
   fm.innerHTML = '<option value="">Todas as matérias</option>' +
-    state.materias.map(m=>`<option value="${m.id}" ${m.id==cur?'selected':''}>${m.nome}</option>`).join('');
+    state.materias.map(m => `<option value="${m.id}" ${m.id == cur ? 'selected' : ''}>${m.nome}</option>`).join('');
 
   state.questions = JSON.parse(localStorage.getItem('studyos_v2_questions') || '[]');
 
   let qs = [...state.questions];
-  if(filterMat) qs = qs.filter(q=>q.matId==filterMat);
-  if(filterRes==='correct') qs = qs.filter(q=>q.result==='correct');
-  else if(filterRes==='wrong') qs = qs.filter(q=>q.result==='wrong');
-  else if(filterRes==='pending') qs = qs.filter(q=>!q.result);
+  if (filterMat) qs = qs.filter(q => q.matId == filterMat);
+  if (filterRes === 'correct') qs = qs.filter(q => q.result === 'correct');
+  else if (filterRes === 'wrong') qs = qs.filter(q => q.result === 'wrong');
+  else if (filterRes === 'pending') qs = qs.filter(q => !q.result);
 
   const el = document.getElementById('questions-list');
-  if(!qs.length) { el.innerHTML='<div class="empty"><div class="empty-icon">✏️</div>Nenhuma questão aqui</div>'; return; }
+  if (!qs.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">✏️</div>Nenhuma questão aqui</div>'; return; }
 
   el.innerHTML = qs.map(q => {
-    const rColor = q.result==='correct'?'var(--green)':q.result==='wrong'?'var(--red)':'var(--muted)';
-    const rIcon = q.result==='correct'?'✓':q.result==='wrong'?'✗':'—';
+    const rColor = q.result === 'correct' ? 'var(--green)' : q.result === 'wrong' ? 'var(--red)' : 'var(--muted)';
+    const rIcon = q.result === 'correct' ? '✓' : q.result === 'wrong' ? '✗' : '—';
     return `<div class="card" style="margin-bottom:.75rem;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.75rem;gap:.5rem;flex-wrap:wrap;">
         <div>
           <span style="font-size:11px;color:var(--muted);">${q.matName}</span>
-          ${q.topicName?`<span style="font-size:11px;color:var(--muted);"> · ${q.topicName}</span>`:''}
+          ${q.topicName ? `<span style="font-size:11px;color:var(--muted);"> · ${q.topicName}</span>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:.5rem;">
           <span style="font-size:15px;color:${rColor};font-weight:700;">${rIcon}</span>
-          <button class="btn sm" onclick="resetQ('${q.id}')" ${!q.result?'disabled':''} style="${!q.result?'opacity:.3;':''}" title="Tentar novamente">↺</button>
+          <button class="btn sm" onclick="resetQ('${q.id}')" ${!q.result ? 'disabled' : ''} style="${!q.result ? 'opacity:.3;' : ''}" title="Tentar novamente">↺</button>
           <button class="btn sm danger" onclick="deleteQuestion('${q.id}')">✕</button>
         </div>
       </div>
       <div style="font-size:14px;margin-bottom:.75rem;line-height:1.6;">${q.text}</div>
       ${q.options.length ? `<div class="q-options">
-        ${q.options.map((o,i) => {
-          let cls = 'q-option';
-          if(q.answeredIdx !== null) {
-            if(i === q.correctIdx) cls += ' correct';
-            else if(i === q.answeredIdx) cls += ' wrong';
-          }
-          return `<div class="${cls}" onclick="answerQ('${q.id}',${i})"><strong>${o.label}</strong> ${o.text}</div>`;
-        }).join('')}
+        ${q.options.map((o, i) => {
+      let cls = 'q-option';
+      if (q.answeredIdx !== null) {
+        if (i === q.correctIdx) cls += ' correct';
+        else if (i === q.answeredIdx) cls += ' wrong';
+      }
+      return `<div class="${cls}" onclick="answerQ('${q.id}',${i})"><strong>${o.label}</strong> ${o.text}</div>`;
+    }).join('')}
       </div>` : `
         ${q.result === null ? `<div style="display:flex;gap:.5rem;margin-top:.5rem;">
           <button class="btn sm primary" onclick="markQ('${q.id}','correct')">✓ Acertei</button>
@@ -568,7 +630,7 @@ function renderQuestoes() {
 }
 
 // ─── POMODORO (Local) ─────────────────────────────────────────────────────────
-const POMO_MODES = { work: 25*60, short: 5*60, long: 15*60 };
+const POMO_MODES = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const POMO_LABELS = { work: 'FOCO', short: 'PAUSA', long: 'LONGA' };
 const TECHNIQUE_TIPS = {
   'Resumo Ativo': 'Leia o material, depois feche e escreva os pontos principais com suas palavras. Repita até conseguir reproduzir sem olhar.',
@@ -580,44 +642,44 @@ const TECHNIQUE_TIPS = {
 };
 
 let pomoTimer = null;
-let pomoSeconds = 25*60;
+let pomoSeconds = 25 * 60;
 let pomoMode = 'work';
 let pomoRunning = false;
-let pomoCount = parseInt(localStorage.getItem('pomoCount')||'0');
-let lastPomoDate = localStorage.getItem('pomoDate')||'';
-if(lastPomoDate !== today()) { pomoCount = 0; localStorage.setItem('pomoDate', today()); localStorage.setItem('pomoCount','0'); }
+let pomoCount = parseInt(localStorage.getItem('pomoCount') || '0');
+let lastPomoDate = localStorage.getItem('pomoDate') || '';
+if (lastPomoDate !== today()) { pomoCount = 0; localStorage.setItem('pomoDate', today()); localStorage.setItem('pomoCount', '0'); }
 
 function setPomoMode(mode) {
-  if(pomoRunning) return;
+  if (pomoRunning) return;
   pomoMode = mode;
   pomoSeconds = POMO_MODES[mode];
-  document.querySelectorAll('[id^="pomo-mode-"]').forEach(b => b.style.borderColor='');
-  document.getElementById('pomo-mode-'+mode).style.borderColor = 'var(--accent)';
-  document.getElementById('pomo-mode-'+mode).style.color = 'var(--accent)';
+  document.querySelectorAll('[id^="pomo-mode-"]').forEach(b => b.style.borderColor = '');
+  document.getElementById('pomo-mode-' + mode).style.borderColor = 'var(--accent)';
+  document.getElementById('pomo-mode-' + mode).style.color = 'var(--accent)';
   updatePomoDisplay();
 }
 
 function togglePomo() {
   pomoRunning = !pomoRunning;
   document.getElementById('pomo-btn').textContent = pomoRunning ? '⏸ Pausar' : '▶ Retomar';
-  if(pomoRunning) {
+  if (pomoRunning) {
     pomoTimer = setInterval(() => {
       pomoSeconds--;
       updatePomoDisplay();
-      if(pomoSeconds <= 0) {
+      if (pomoSeconds <= 0) {
         clearInterval(pomoTimer);
         pomoRunning = false;
         document.getElementById('pomo-btn').textContent = '▶ Iniciar';
-        if(pomoMode === 'work') {
+        if (pomoMode === 'work') {
           pomoCount++;
           localStorage.setItem('pomoCount', pomoCount);
           document.getElementById('pomo-count').textContent = pomoCount;
         }
-        if(Notification.permission === 'granted') {
-          new Notification('StudyOS', { body: pomoMode==='work' ? '✓ Pomodoro completo! Hora da pausa.' : '▶ Pausa concluída! Volte ao foco.', icon: '' });
+        if (Notification.permission === 'granted') {
+          new Notification('StudyOS', { body: pomoMode === 'work' ? '✓ Pomodoro completo! Hora da pausa.' : '▶ Pausa concluída! Volte ao foco.', icon: '' });
         }
-        alert(pomoMode==='work' ? '🎯 Pomodoro completo! Hora de descansar.' : '✅ Pausa encerrada! Volte ao foco.');
-        setPomoMode(pomoMode==='work'?'short':'work');
+        alert(pomoMode === 'work' ? '🎯 Pomodoro completo! Hora de descansar.' : '✅ Pausa encerrada! Volte ao foco.');
+        setPomoMode(pomoMode === 'work' ? 'short' : 'work');
       }
     }, 1000);
   } else {
@@ -634,25 +696,39 @@ function resetPomo() {
 }
 
 function updatePomoDisplay() {
-  const m = String(Math.floor(pomoSeconds/60)).padStart(2,'0');
-  const s = String(pomoSeconds%60).padStart(2,'0');
+  const m = String(Math.floor(pomoSeconds / 60)).padStart(2, '0');
+  const s = String(pomoSeconds % 60).padStart(2, '0');
   document.getElementById('pomo-display').textContent = `${m}:${s}`;
   document.getElementById('pomo-label').textContent = POMO_LABELS[pomoMode];
   document.getElementById('pomo-count').textContent = pomoCount;
   const pct = 1 - (pomoSeconds / POMO_MODES[pomoMode]);
-  const color = pomoMode==='work'?'var(--accent)':pomoMode==='short'?'var(--green)':'var(--amber)';
-  document.getElementById('pomo-circle').style.borderColor = `color-mix(in srgb, ${color} ${Math.round(pct*100)}%, var(--surface3))`;
+  const color = pomoMode === 'work' ? 'var(--accent)' : pomoMode === 'short' ? 'var(--green)' : 'var(--amber)';
+  document.getElementById('pomo-circle').style.borderColor = `color-mix(in srgb, ${color} ${Math.round(pct * 100)}%, var(--surface3))`;
 }
 
-document.getElementById('pomo-technique').addEventListener('change', function() {
+document.getElementById('pomo-technique').addEventListener('change', function () {
   document.getElementById('technique-tip').textContent = TECHNIQUE_TIPS[this.value] || '';
 });
 
 // Pedir permissão para notificações
-if(Notification.permission === 'default') Notification.requestPermission();
+if (Notification.permission === 'default') Notification.requestPermission();
+
+// 🟢 Faz o campo de notas crescer dinamicamente como uma folha infinita!
+function autoGrow(element) {
+  element.style.height = "auto";
+  element.style.height = (element.scrollHeight) + "px";
+}
+
+function resetNotes() {
+  const notes = document.getElementById('session-notes');
+  if (notes) {
+    notes.value = '';
+    notes.style.height = '180px';
+  }
+}
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 renderDashboard();
 updatePomoDisplay();

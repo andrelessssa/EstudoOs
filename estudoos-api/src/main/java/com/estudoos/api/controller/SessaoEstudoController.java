@@ -11,7 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.dtos.SessaoDTO;
+import com.estudoos.api.repository.SessaoEstudoRepository;
 import com.estudoos.api.service.SessaoEstudoService;
+
 
 @RestController
 @RequestMapping("/api/sessoes")
@@ -19,6 +21,8 @@ import com.estudoos.api.service.SessaoEstudoService;
 public class SessaoEstudoController {
 
     private final SessaoEstudoService sessaoEstudoService;
+    
+
 
     public SessaoEstudoController(SessaoEstudoService sessaoEstudoService) {
         this.sessaoEstudoService = sessaoEstudoService;
@@ -35,4 +39,10 @@ public class SessaoEstudoController {
     public ResponseEntity<List<SessaoDTO>> listarSessoes() {
         return ResponseEntity.ok(sessaoEstudoService.listarTodas());
     }
+    @GetMapping("/calendario/estudados")
+public ResponseEntity<List<String>> getDiasEstudados() {
+    // 🟢 Agora a controller apenas delega a responsabilidade para o Service!
+    List<String> dias = sessaoEstudoService.obterDiasEstudados();
+    return ResponseEntity.ok(dias);
+}
 }

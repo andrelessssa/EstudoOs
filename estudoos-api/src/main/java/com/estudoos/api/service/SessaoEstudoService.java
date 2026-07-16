@@ -102,4 +102,7 @@ public class SessaoEstudoService {
                 ))
                 .collect(Collectors.toList());
     }
+    public List<String> obterDiasEstudados() {
+    return sessaoEstudoRepository.findDistinctDatasEstudo();
+}
 }
