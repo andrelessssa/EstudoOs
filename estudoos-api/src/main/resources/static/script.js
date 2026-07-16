@@ -7,6 +7,7 @@ const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'
 // ─── STATE LOCAL ─────────────────────────────────────────────────────────────
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = []; // Controla os checks clicados na sessão de hoje
+let revisaoAtiva = null; // 🟢 Guarda os dados da revisão histórica selecionada
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -16,6 +17,11 @@ function showPage(id) {
   const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro'];
   const idx = pages.indexOf(id);
   document.querySelectorAll('.tab')[idx]?.classList.add('active');
+
+  // 🟢 Se o usuário navegou clicando manualmente nas abas, desativa o modo revisão
+  if (id !== 'hoje') {
+    revisaoAtiva = null;
+  }
 
   if (id === 'dashboard') renderDashboard();
   if (id === 'materias') renderMaterias();
@@ -46,16 +52,15 @@ async function renderDashboard() {
   document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   try {
-    // 1. Buscas paralelas trazendo os dados das matérias, revisões e as datas do banco! 🚀
     const [resMat, resRev, resDias] = await Promise.all([
       fetch(`${API_URL}/api/materias`),
       fetch(`${API_URL}/api/revisoes/hoje`),
-      fetch(`${API_URL}/api/sessoes/calendario/estudados`) // 🟢 Rota correta e mapeada na SessaoEstudoController!
+      fetch(`${API_URL}/api/sessoes/calendario/estudados`)
     ]);
 
     state.materias = await resMat.json();
     const revisoesHoje = await resRev.json();
-    const diasEstudadosNoBanco = await resDias.json(); // Array de Strings (ex: ["2026-07-15", "2026-07-16"])
+    const diasEstudadosNoBanco = await resDias.json();
 
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
@@ -110,7 +115,6 @@ async function renderDashboard() {
       }).join('');
     }
 
-    // ─── RENDEREZAÇÃO DO CALENDÁRIO COM HISTÓRICO DO POSTGRESQL 📅 ───
     const cal = document.getElementById('dash-calendar');
     const now = new Date();
     const year = now.getFullYear();
@@ -123,7 +127,6 @@ async function renderDashboard() {
     const todayStr = today();
     const headers = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
-    // Normalização das datas vindas do Java para evitar qualquer divergência de formato string
     const datasLimpasDoBanco = diasEstudadosNoBanco.map(d => d ? d.substring(0, 10) : '');
 
     let html = `<div class="cal-grid" style="margin-bottom:6px;">${headers.map(h => `<div style="text-align:center;font-size:10px;color:var(--muted);padding:4px 0;">${h}</div>`).join('')}</div><div class="cal-grid">`;
@@ -133,15 +136,13 @@ async function renderDashboard() {
     for (let d = 1; d <= days; d++) {
       const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const isToday = ds === todayStr;
-
-      // 🕵️‍♂️ Verifica se o dia atual da iteração existe na lista de dias estudados vinda do Java
       const foiEstudado = datasLimpasDoBanco.includes(ds);
 
       let cls = 'cal-day';
       if (isToday) {
         cls += ' today';
       } else if (foiEstudado) {
-        cls += ' studied'; // 🟢 Aplica a estilização de caixa cinza do seu style.css!
+        cls += ' studied';
       }
 
       html += `<div class="${cls}"><span class="cal-day-num">${d}</span></div>`;
@@ -275,7 +276,6 @@ async function deleteMateria(id) {
 async function renderRevisao() {
   const el = document.getElementById('review-list');
   try {
-    // 1. Busca os dados e as estatísticas em paralelo
     const [resHoje, resStats] = await Promise.all([
       fetch(`${API_URL}/api/revisoes/hoje`),
       fetch(`${API_URL}/api/revisoes/estatisticas`)
@@ -284,7 +284,6 @@ async function renderRevisao() {
     const revisoesFila = await resHoje.json();
     const stats = await resStats.json();
 
-    // 2. Atualiza os cards estatísticos superiores
     const cardHoje = document.getElementById('rev-today');
     const cardSemana = document.getElementById('rev-week');
     const cardFeitas = document.getElementById('rev-done');
@@ -299,41 +298,35 @@ async function renderRevisao() {
     }
 
     const stageColors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399'];
-
-    // Pegamos a data de hoje formatada em UTC/Local para comparação justa (formato YYYY-MM-DD)
     const hojeStr = new Date().toISOString().split('T')[0];
 
     el.innerHTML = revisoesFila.map(r => {
       const stage = r.etapa || 1;
-
-      // 🟢 Mapeamento exato com o seu Record/DTO Java!
+      const idRevisao = r.id;
       const topico = r.nomeTopico || "Sem Assunto";
       const materia = r.nomeMateria || "Sem Matéria";
       const cor = r.corMateria || "#6b7280";
       const dataAgendadaStr = r.dataAgendada;
 
-      // Define os intervalos da curva de Ebbinghaus baseados na etapa
-      const intervalo = stage === 1 ? 1 : stage === 2 ? 7 : stage === 3 ? 15 : 30;
+      const materiaDoState = state.materias.find(m => m.nome.toLowerCase() === materia.toLowerCase());
+      const materiaId = materiaDoState ? materiaDoState.id : "";
 
-      // Se a data de agendamento for menor ou igual a hoje, está no prazo ou atrasada
+      const intervalo = stage === 1 ? 1 : stage === 2 ? 7 : stage === 3 ? 15 : 30;
       const isDue = dataAgendadaStr <= hojeStr;
 
-      // Formatando a data do agendamento para exibir no badge (DD/MM)
       const partesData = dataAgendadaStr.split('-');
       const dataFormatada = partesData.length === 3 ? `${partesData[2]}/${partesData[1]}` : dataAgendadaStr;
 
-      // Badges dinâmicos
       const badgeHTML = isDue
         ? `<span class="badge due" style="background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">REVISAR HOJE</span>`
         : `<span class="badge future" style="background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3); font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; white-space: nowrap;">AGENDADA: ${dataFormatada}</span>`;
 
-      // Botão dinâmico
       const botaoHTML = isDue
-        ? `<button class="btn sm primary" onclick="doneReview('${r.id}')">✓ Feita</button>`
+        ? `<button class="btn sm primary" onclick="doneReview('${idRevisao}')">✓ Feita</button>`
         : `<button class="btn sm" disabled style="opacity: 0.4; cursor: not-allowed; background: var(--surface3); color: var(--muted); border: 1px solid var(--border-color);">Aguardando</button>`;
 
-      return `<div class="review-card" style="${!isDue ? 'opacity: 0.85;' : ''} display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--surface2); border: 1px solid var(--border-color); border-radius: var(--radius); margin-bottom: 0.5rem;">
-        <div style="display: flex; gap: 1rem; align-items: center;">
+      return `<div class="review-card" onclick="irParaSessaoDeRevisao('${materiaId}', '${topico}')" style="${!isDue ? 'opacity: 0.85;' : ''} cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--surface2); border: 1px solid var(--border-color); border-radius: var(--radius); margin-bottom: 0.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center; pointer-events: none;">
           <div class="review-icon" style="background:${stageColors[(stage - 1) % 4]}22; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius);">
             <span style="font-size:14px;font-weight:700;color:${stageColors[(stage - 1) % 4]};">${stage}ª</span>
           </div>
@@ -345,7 +338,7 @@ async function renderRevisao() {
             </div>
           </div>
         </div>
-        <div style="display: flex; align-items: center; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;" onclick="event.stopPropagation();">
           ${badgeHTML}
           ${botaoHTML}
         </div>
@@ -356,10 +349,12 @@ async function renderRevisao() {
   }
 }
 
-// ─── SESSÃO DE HOJE ───────────────────────────────────────────────────────────
+// ─── SESSÃO DE REVISÃO / HOJE ──────────────────────────────────────────────────
 async function renderHoje() {
-  document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const tituloPagina = document.querySelector('#page-hoje h2');
+  const subtituloData = document.getElementById('hoje-date');
   const sel = document.getElementById('session-mat');
+  const btnSalvar = document.querySelector('#page-hoje .btn.primary'); // Pega o botão de salvar/concluir
   const cur = sel.value;
 
   try {
@@ -369,8 +364,48 @@ async function renderHoje() {
     sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
       state.materias.map(m => `<option value="${m.id}" ${m.id == cur ? 'selected' : ''}>${m.nome}</option>`).join('');
 
-    loadSessionTopics();
-    renderHistoricoSessoes();
+    // 🟢 MODO REVISÃO HISTÓRICA ATIVO
+    if (revisaoAtiva) {
+      if (tituloPagina) tituloPagina.textContent = "SESSÃO DE REVISÃO";
+
+      // 📅 Exibe a data real da sessão formatada no padrão brasileiro (DD/MM/YYYY)
+      if (subtituloData && revisaoAtiva.dataSessao) {
+        const partes = revisaoAtiva.dataSessao.split('-');
+        const dataFormatada = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : revisaoAtiva.dataSessao;
+        subtituloData.textContent = `Sessão realizada em: ${dataFormatada}`;
+      }
+
+      // 🔄 Transforma o botão salvar em "Concluir Revisão"
+      if (btnSalvar) {
+        btnSalvar.innerHTML = '💾 Concluir revisão';
+        btnSalvar.onclick = concluirRevisaoDaFila; // Altera a função de clique!
+      }
+
+      // Bloqueia e preenche os campos para visualização
+      sel.value = revisaoAtiva.materiaId;
+      document.getElementById('session-notes').value = revisaoAtiva.anotacoes || '';
+      autoGrow(document.getElementById('session-notes'));
+
+      await loadSessionTopicsRevisao(revisaoAtiva.topicosConcluidosIds);
+      renderHistoricoSessaoUnica(revisaoAtiva);
+
+    } else {
+      // 🟢 MODO HOJE TRADICIONAL
+      if (tituloPagina) tituloPagina.textContent = "SESSÃO DE HOJE";
+      if (subtituloData) {
+        subtituloData.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+      }
+
+      // Voltar o botão para o estado original de salvar sessão
+      if (btnSalvar) {
+        btnSalvar.innerHTML = '💾 Salvar sessão';
+        btnSalvar.onclick = saveSession;
+      }
+
+      loadSessionTopics();
+      renderHistoricoSessaoHoje();
+    }
+
   } catch (error) {
     console.error("Erro na aba hoje:", error);
   }
@@ -449,7 +484,6 @@ async function saveSession() {
       document.getElementById('session-notes').value = '';
       topicosSelecionadosLocalmente = [];
 
-      // 🚀 Atualiza e reconstrói as listas de forma silenciosa e limpa
       renderDashboard();
       renderHoje();
     } else {
@@ -460,31 +494,65 @@ async function saveSession() {
   }
 }
 
-// ─── HISTÓRICO DE SESSÕES (Direto do PostgreSQL - FILTRADO POR HOJE) ──────────────
-async function renderHistoricoSessoes() {
-  const hist = document.getElementById('session-history');
+// ─── FUNÇÕES AUXILIARES DE REVISÃO HISTÓRICA ──────────────────────────────────
+async function loadSessionTopicsRevisao(topicosIdsConcluidos) {
+  const matId = document.getElementById('session-mat').value;
+  const el = document.getElementById('session-topics-list');
+  if (!matId) return;
 
   try {
+    const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
+    const topicos = await res.json();
+
+    el.innerHTML = topicos.map(t => {
+      const idNum = parseInt(t.id);
+      const foiConcluidoNaSessao = topicosIdsConcluidos.includes(idNum);
+
+      return `
+      <div class="topic-row" style="opacity: ${foiConcluidoNaSessao ? '1' : '0.5'};">
+        <div class="topic-check ${foiConcluidoNaSessao ? 'checked' : ''}" style="pointer-events: none;"></div>
+        <div class="topic-name ${foiConcluidoNaSessao ? 'done' : ''}">${t.nome}</div>
+      </div>`;
+    }).join('');
+  } catch (error) {
+    console.error("Erro ao carregar tópicos de revisão:", error);
+  }
+}
+
+function renderHistoricoSessaoUnica(sessao) {
+  const hist = document.getElementById('session-history');
+  const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
+  const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+
+  hist.innerHTML = `
+    <div style="padding:.85rem;background:var(--surface3);border: 1px dashed var(--accent);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--accent);min-width:70px;padding-top:2px;">🔍 REVISANDO</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
+        ${sessao.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${sessao.anotacoes}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+async function renderHistoricoSessaoHoje() {
+  const hist = document.getElementById('session-history');
+  try {
     const res = await fetch(`${API_URL}/api/sessoes`);
-    if (!res.ok) throw new Error("Erro ao carregar sessões");
-
+    if (!res.ok) throw new Error();
     const sessoesDoBanco = await res.json();
-    const todayStr = today(); // 🟢 Pega o dia atual (ex: 2026-07-15)
-
-    // 🎯 FILTRO CRUCIAL: Retém APENAS os registros que combinam com o dia de HOJE!
+    const todayStr = today();
     const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
 
-    if (!sessoesDeHoje || !sessoesDeHoje.length) {
+    if (!sessoesDeHoje.length) {
       hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
       return;
     }
 
     const sessoesInvertidas = [...sessoesDeHoje].reverse();
-
     hist.innerHTML = sessoesInvertidas.map(s => {
       const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(today());
       const materiaObj = state.materias.find(m => m.id == s.materiaId);
-      const materiaNome = materiaObj ? materiaObj.nome : `Matéria (ID: ${s.materiaId})`;
+      const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
 
       return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
         <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">📅 ${dataFormatada}</div>
@@ -495,10 +563,25 @@ async function renderHistoricoSessoes() {
         <button class="btn sm danger" onclick="deleteSessionLocal('${s.materiaId}')">✕</button>
       </div>`;
     }).join('');
+  } catch (e) {
+    hist.innerHTML = '<div class="empty">Erro ao carregar histórico de hoje</div>';
+  }
+}
 
+// 🟢 Ativa o modo de revisão histórico ao clicar no card de revisão
+async function irParaSessaoDeRevisao(materiaId, topicoNome) {
+  if (!materiaId) return;
+
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes/revisar/${materiaId}`);
+    if (res.ok) {
+      revisaoAtiva = await res.json();
+      showPage('hoje');
+    } else {
+      alert("Nenhuma sessão de estudos salva encontrada para essa matéria!");
+    }
   } catch (error) {
-    console.error("Erro ao renderizar histórico:", error);
-    hist.innerHTML = '<div class="empty">Erro ao conectar com o banco de dados</div>';
+    console.error("Erro ao carregar sessão para revisão:", error);
   }
 }
 

@@ -26,4 +26,6 @@ public interface RevisaoRepository extends JpaRepository<Revisao, Long> {
 
     // 🟢 3. Mantido para calcular o total de revisões concluídas
     long countByFeitaTrue();
+
+    
 }

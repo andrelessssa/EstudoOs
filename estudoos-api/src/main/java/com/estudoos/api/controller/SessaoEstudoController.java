@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,15 +15,12 @@ import com.estudoos.api.dtos.SessaoDTO;
 import com.estudoos.api.repository.SessaoEstudoRepository;
 import com.estudoos.api.service.SessaoEstudoService;
 
-
 @RestController
 @RequestMapping("/api/sessoes")
 @CrossOrigin(origins = "*")
 public class SessaoEstudoController {
 
     private final SessaoEstudoService sessaoEstudoService;
-    
-
 
     public SessaoEstudoController(SessaoEstudoService sessaoEstudoService) {
         this.sessaoEstudoService = sessaoEstudoService;
@@ -39,10 +37,21 @@ public class SessaoEstudoController {
     public ResponseEntity<List<SessaoDTO>> listarSessoes() {
         return ResponseEntity.ok(sessaoEstudoService.listarTodas());
     }
+
     @GetMapping("/calendario/estudados")
-public ResponseEntity<List<String>> getDiasEstudados() {
-    // 🟢 Agora a controller apenas delega a responsabilidade para o Service!
-    List<String> dias = sessaoEstudoService.obterDiasEstudados();
-    return ResponseEntity.ok(dias);
-}
+    public ResponseEntity<List<String>> getDiasEstudados() {
+        // 🟢 Agora a controller apenas delega a responsabilidade para o Service!
+        List<String> dias = sessaoEstudoService.obterDiasEstudados();
+        return ResponseEntity.ok(dias);
+    }
+
+    // 🟢 Novo endpoint que retorna a sessão completa para a tela de revisão
+    @GetMapping("/revisar/{materiaId}")
+    public ResponseEntity<SessaoDTO> obterSessaoParaRevisao(@PathVariable Long materiaId) {
+        SessaoDTO sessao = sessaoEstudoService.obterUltimaSessaoDaMateria(materiaId);
+        if (sessao == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(sessao);
+    }
 }

@@ -102,7 +102,30 @@ public class SessaoEstudoService {
                 ))
                 .collect(Collectors.toList());
     }
+
     public List<String> obterDiasEstudados() {
-    return sessaoEstudoRepository.findDistinctDatasEstudo();
-}
+        return sessaoEstudoRepository.findDistinctDatasEstudo();
+    }
+
+    // 🟢 Ajustado para bater exatamente com o construtor do seu SessaoDTO!
+    public SessaoDTO obterUltimaSessaoDaMateria(Long materiaId) {
+        org.springframework.data.domain.Pageable limiteDeUm = org.springframework.data.domain.PageRequest.of(0, 1);
+        List<SessaoEstudo> sessoes = sessaoEstudoRepository.findLatestSessionByMateriaId(materiaId, limiteDeUm);
+
+        if (sessoes.isEmpty()) {
+            return null;
+        }
+
+        SessaoEstudo sessao = sessoes.get(0);
+
+        // Mapeia na ordem correta: materiaId, anotacoes, topicosConcluidosIds,
+        // dataSessao 🚀
+        return new SessaoDTO(
+                sessao.getMateria().getId(),
+                sessao.getAnotacoes(),
+                sessao.getTopicos().stream().map(t -> t.getId()).collect(Collectors.toList()),
+                sessao.getDataSessao() // Passa o LocalDate direto do banco
+        );
+    }
+
 }
