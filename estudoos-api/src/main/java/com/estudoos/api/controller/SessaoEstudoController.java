@@ -4,15 +4,16 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.dtos.SessaoDTO;
-import com.estudoos.api.repository.SessaoEstudoRepository;
 import com.estudoos.api.service.SessaoEstudoService;
 
 @RestController
@@ -54,4 +55,16 @@ public class SessaoEstudoController {
         }
         return ResponseEntity.ok(sessao);
     }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> excluirSessao(@PathVariable Long id) {
+        // 🟢 Agora chamando o service correto onde o método foi colado!
+        sessaoEstudoService.excluirSessaoEVoltarTopicos(id);
+        return ResponseEntity.noContent().build();
+    }
+    @PutMapping("/{id}/anotacoes")
+    public ResponseEntity<Void> atualizarAnotacoes(@PathVariable Long id, @RequestBody String novasAnotacoes) {
+        sessaoEstudoService.atualizarAnotacoesSessao(id, novasAnotacoes);
+        return ResponseEntity.ok().build();
+    }
+    
 }

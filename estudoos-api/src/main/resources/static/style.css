@@ -124,10 +124,10 @@ body {
 /* CARDS */
 /* 🟢 Substitua ou adicione estas regras no seu style.css: */
 
-.cal-grid { 
-  display: grid; 
-  grid-template-columns: repeat(7, 1fr); 
-  gap: 6px; 
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
 .cal-day {
@@ -141,33 +141,35 @@ body {
   font-weight: 500;
   position: relative;
   cursor: pointer;
-  background: transparent; /* 🟢 Dias sem estudo ficam invisíveis por padrão */
+  background: transparent;
+  /* 🟢 Dias sem estudo ficam invisíveis por padrão */
   transition: all 0.2s ease;
   border: 1px solid transparent;
 }
 
 /* ⬜ Dias passados com estudo: caixa cinza elegante combinando com o tema */
-.cal-day.studied { 
-  background: var(--surface3) !important; 
+.cal-day.studied {
+  background: var(--surface3) !important;
   border: 1px solid var(--border) !important;
   color: var(--text) !important;
 }
 
 /* 🟧 Dia atual (Hoje): caixa laranja do seu tema Fire */
-.cal-day.today { 
-  background: var(--accent) !important; 
-  color: #0A0E14 !important; /* Texto escuro para contraste excelente */
+.cal-day.today {
+  background: var(--accent) !important;
+  color: #0A0E14 !important;
+  /* Texto escuro para contraste excelente */
   font-weight: 700 !important;
   box-shadow: 0 0 12px rgba(255, 90, 60, 0.3);
 }
 
-.cal-day-num { 
-  font-size: 12px; 
-  font-weight: 600; 
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.cal-day.empty { 
-  opacity: .2; 
+.cal-day.empty {
+  opacity: .2;
 }
 
 .card-title {
@@ -295,6 +297,8 @@ body {
 .btn.danger:hover {
   background: var(--red-dim);
 }
+
+
 
 /* INPUT */
 input,
@@ -805,4 +809,51 @@ a {
 
 a:hover {
   color: #FFB020;
+}
+
+
+/* 1. Força o Combobox (Dropdown) a perder o visual antigo e nativo do Mac */
+select,
+#session-mat {
+  -webkit-appearance: none !important;
+  /* Remove o estilo padrão do Safari/Chrome no Mac */
+  -moz-appearance: none !important;
+  /* Remove no Firefox */
+  appearance: none !important;
+  /* Padrão moderno */
+
+  /* Mantém as suas cores e adiciona espaçamento para a nova seta */
+  background-color: var(--surface2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border2) !important;
+  padding-right: 32px !important;
+
+  /* Injeta uma setinha estilizada e moderna em formato SVG */
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238D9AB0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 14px !important;
+}
+
+/* 2. Cria as caixas de fundo para as colunas da "Aba Hoje" que estavam transparentes */
+#session-topics-list,
+#session-history {
+  background: var(--surface) !important;
+  /* Usa o cinza escuro do seu app */
+  border: 1px solid var(--border) !important;
+  /* Adiciona a bordinha sutil */
+  border-radius: var(--radius-lg) !important;
+  /* Arredonda os cantos como nos outros cards */
+  padding: 1.25rem !important;
+  /* Dá espaçamento interno para os itens não colarem na borda */
+  min-height: 220px;
+  /* Garante um tamanho mínimo bonito */
+  margin-top: 0.5rem;
+}
+
+/* Se a mensagem de "Nenhuma sessão registrada" ou "Selecione uma matéria" aparecer, ela herda o estilo */
+#session-topics-list .empty,
+#session-history .empty {
+  background: transparent !important;
+  padding: 2rem 1rem !important;
 }

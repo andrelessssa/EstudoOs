@@ -8,6 +8,8 @@ const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = []; // Controla os checks clicados na sessão de hoje
 let revisaoAtiva = null; // 🟢 Guarda os dados da revisão histórica selecionada
+let sessaoSendoEditadaId = null;
+
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -354,7 +356,7 @@ async function renderHoje() {
   const tituloPagina = document.querySelector('#page-hoje h2');
   const subtituloData = document.getElementById('hoje-date');
   const sel = document.getElementById('session-mat');
-  const btnSalvar = document.querySelector('#page-hoje .btn.primary'); // Pega o botão de salvar/concluir
+  const btnSalvar = document.querySelector('#page-hoje .btn.primary');
   const cur = sel.value;
 
   try {
@@ -378,7 +380,7 @@ async function renderHoje() {
       // 🔄 Transforma o botão salvar em "Concluir Revisão"
       if (btnSalvar) {
         btnSalvar.innerHTML = '💾 Concluir revisão';
-        btnSalvar.onclick = concluirRevisaoDaFila; // Altera a função de clique!
+        btnSalvar.onclick = concluirRevisaoDaFila;
       }
 
       // Bloqueia e preenche os campos para visualização
@@ -403,7 +405,7 @@ async function renderHoje() {
       }
 
       loadSessionTopics();
-      renderHistoricoSessaoHoje();
+      renderHistoricoSessaoHoje(); // 🚀 Chama a listagem limpa atualizada!
     }
 
   } catch (error) {
@@ -506,7 +508,7 @@ async function loadSessionTopicsRevisao(topicosIdsConcluidos) {
 
     el.innerHTML = topicos.map(t => {
       const idNum = parseInt(t.id);
-      const foiConcluidoNaSessao = topicosIdsConcluidos.includes(idNum);
+      const foiConcluidoNaSessao = topicosIdsConcluidos ? topicosIdsConcluidos.includes(idNum) : false;
 
       return `
       <div class="topic-row" style="opacity: ${foiConcluidoNaSessao ? '1' : '0.5'};">
@@ -520,75 +522,180 @@ async function loadSessionTopicsRevisao(topicosIdsConcluidos) {
 }
 
 function renderHistoricoSessaoUnica(sessao) {
-  const hist = document.getElementById('session-history');
-  const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
-  const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+  const container = document.getElementById('session-history');
+  if (!container) return;
 
-  hist.innerHTML = `
-    <div style="padding:.85rem;background:var(--surface3);border: 1px dashed var(--accent);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
-      <div style="font-family:var(--mono);font-size:11px;color:var(--accent);min-width:70px;padding-top:2px;">🔍 REVISANDO</div>
-      <div style="flex:1;">
-        <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
-        ${sessao.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${sessao.anotacoes}</div>` : ''}
+  const materia = state.materias.find(m => m.id == sessao.materiaId);
+  const nomeMateria = materia ? materia.nome : 'Matéria';
+
+  const topicosHtml = sessao.topicosNomes && sessao.topicosNomes.length > 0
+    ? sessao.topicosNomes.map(nome => `<span class="badge warn" style="margin-right: 5px; font-size: 11px;">${nome}</span>`).join('')
+    : `<span class="badge warn" style="margin-right: 5px; font-size: 11px;">Focando no assunto agendado</span>`;
+
+  const partes = sessao.dataSessao.split('-');
+  const dataFormatada = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : sessao.dataSessao;
+
+  container.innerHTML = `
+    <div class="review-card" style="border: 1px solid var(--accent); background: var(--surface2); width: 100%;">
+      <div class="review-info">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="text-muted" style="font-size: 12px;">📅 ${dataFormatada}</span>
+          <strong class="subject-name" style="font-size: 14px; color: var(--accent);">${nomeMateria} (Visualizando)</strong>
+        </div>
+        
+        <div style="margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px;">
+          ${topicosHtml}
+        </div>
+
+        <div class="review-sub" style="font-size: 12px; color: var(--text); margin-top: 4px;">
+          📝 ${sessao.anotacoes || 'Sem anotações.'}
+        </div>
       </div>
-    </div>`;
+    </div>
+  `;
 }
 
+// 🟢 MÉTODOS ATUALIZADOS DO LAYOUT CLEAN (SEM LINHA DO RESUMO)
 async function renderHistoricoSessaoHoje() {
-  const hist = document.getElementById('session-history');
+  const container = document.getElementById('session-history');
+  if (!container) return;
+
   try {
     const res = await fetch(`${API_URL}/api/sessoes`);
-    if (!res.ok) throw new Error();
-    const sessoesDoBanco = await res.json();
-    const todayStr = today();
-    const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
+    const sessoes = await res.json();
 
-    if (!sessoesDeHoje.length) {
-      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
+    if (!sessoes || sessoes.length === 0) {
+      container.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">📂</div>
+          <p>Nenhuma sessão registrada por enquanto.</p>
+        </div>`;
       return;
     }
 
-    const sessoesInvertidas = [...sessoesDeHoje].reverse();
-    hist.innerHTML = sessoesInvertidas.map(s => {
-      const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(today());
-      const materiaObj = state.materias.find(m => m.id == s.materiaId);
-      const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+    const sessoesInvertidas = [...sessoes].reverse();
 
-      return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">📅 ${dataFormatada}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
-          ${s.anotacoes ? `<div style="font-size:12px;color:var(--text);margin-top:4px;opacity:.7;">📝 ${s.anotacoes}</div>` : ''}
+    container.innerHTML = sessoesInvertidas.map(sessao => {
+      const materia = state.materias.find(m => m.id == sessao.materiaId);
+      const nomeMateria = materia ? materia.nome : 'Matéria';
+
+      const topicosHtml = sessao.topicosNomes && sessao.topicosNomes.length > 0
+        ? sessao.topicosNomes.map(nome => `<span class="badge warn" style="font-size: 11px; width: fit-content;">${nome}</span>`).join('')
+        : '<span class="text-muted" style="font-size: 11px;">Nenhum assunto selecionado</span>';
+
+      const partes = sessao.dataSessao.split('-');
+      const dataFormatada = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : sessao.dataSessao;
+
+      // 🟩 Alinhado: Matéria e Assunto em uma coluna vertical, mantendo a badge embaixo do nome!
+      return `
+        <div class="review-card" 
+             onclick="reabrirSessaoNoCaderno(${JSON.stringify(sessao).replace(/"/g, '&quot;')})"
+             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; width: 100%; cursor: pointer;">
+          <div class="review-info" style="pointer-events: none; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="text-muted" style="font-size: 12px;">📅 ${dataFormatada}</span>
+              <strong class="subject-name" style="font-size: 14px; color: var(--text);">${nomeMateria}</strong>
+            </div>
+            <!-- 📚 O assunto agora fica exatamente abaixo do nome da matéria! -->
+            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+              ${topicosHtml}
+            </div>
+          </div>
+          <button class="btn danger sm" onclick="event.stopPropagation(); deletarSessaoHistorico(${sessao.id})" style="padding: 0.35rem 0.6rem; margin-left: 10px; z-index: 10;">✕</button>
         </div>
-        <button class="btn sm danger" onclick="deleteSessionLocal('${s.materiaId}')">✕</button>
-      </div>`;
+      `;
     }).join('');
-  } catch (e) {
-    hist.innerHTML = '<div class="empty">Erro ao carregar histórico de hoje</div>';
+
+  } catch (error) {
+    console.error("Erro ao carregar histórico de sessões:", error);
+    container.innerHTML = '<div class="empty">Erro ao carregar histórico</div>';
   }
 }
 
-// 🟢 Ativa o modo de revisão histórico ao clicar no card de revisão
-async function irParaSessaoDeRevisao(materiaId, topicoNome) {
-  if (!materiaId) return;
+function reabrirSessaoNoCaderno(sessao) {
+  if (!sessao) return;
+
+  // 🟢 Vincula o ID da sessão ativa para sabermos que qualquer alteração no caderno será uma Edição!
+  sessaoSendoEditadaId = sessao.id;
+
+  const selMateria = document.getElementById('session-mat');
+  if (selMateria) {
+    selMateria.value = sessao.materiaId;
+    loadSessionTopics();
+  }
+
+  const campoNotas = document.getElementById('session-notes');
+  if (campoNotas) {
+    campoNotas.value = sessao.anotacoes || '';
+    autoGrow(campoNotas);
+  }
+
+  // Muda o texto do botão de salvar para indicar atualização
+  const btnSalvar = document.querySelector('#page-hoje .btn.primary');
+  if (btnSalvar && !revisaoAtiva) {
+    btnSalvar.innerHTML = '🔄 Atualizar caderno';
+  }
+}
+
+async function saveSession() {
+  const matId = document.getElementById('session-mat').value;
+  if (!matId) { alert('Selecione uma matéria.'); return; }
+  const notes = document.getElementById('session-notes').value.trim();
+
+  // 🟢 MODO EDIÇÃO: Se clicou em um card do histórico, atualiza apenas o texto das notas!
+  if (sessaoSendoEditadaId !== null) {
+    try {
+      const res = await fetch(`${API_URL}/api/sessoes/${sessaoSendoEditadaId}/anotacoes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: notes
+      });
+
+      if (res.ok) {
+        alert("Caderno atualizado com sucesso! 📝");
+        sessaoSendoEditadaId = null; // Reseta o estado de edição
+        document.getElementById('session-notes').value = '';
+        renderHoje(); // Recarrega a tela limpando os campos
+      } else {
+        alert("Erro ao atualizar o caderno no servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao editar notas da sessão:", error);
+    }
+    return;
+  }
+
+  // 🟦 MODO CRIAÇÃO TRADICIONAL (Caso não esteja editando nenhuma sessão existente)
+  if (topicosSelecionadosLocalmente.length === 0) {
+    alert("Selecione pelo menos um tópico concluído para salvar a sessão.");
+    return;
+  }
+
+  const sessaoDTO = {
+    materiaId: parseInt(matId),
+    topicosConcluidosIds: topicosSelecionadosLocalmente,
+    anotacoes: notes
+  };
 
   try {
-    const res = await fetch(`${API_URL}/api/sessoes/revisar/${materiaId}`);
+    const res = await fetch(`${API_URL}/api/sessoes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessaoDTO)
+    });
+
     if (res.ok) {
-      revisaoAtiva = await res.json();
-      showPage('hoje');
+      document.getElementById('session-notes').value = '';
+      topicosSelecionadosLocalmente = [];
+      renderDashboard();
+      renderHoje();
     } else {
-      alert("Nenhuma sessão de estudos salva encontrada para essa matéria!");
+      alert("Erro ao salvar sessão no banco. Verifique os logs do seu Spring Boot!");
     }
   } catch (error) {
-    console.error("Erro ao carregar sessão para revisão:", error);
+    console.error("Erro ao salvar sessão:", error);
   }
 }
-
-function deleteSessionLocal(id) {
-  alert("Para remover registros permanentes, exclua diretamente no banco de dados ou implemente o endpoint DELETE no Java!");
-}
-
 // ─── QUESTÕES (Local em localStorage) ──────────────────────────────────────────
 let optionCount = 0;
 
@@ -712,6 +819,67 @@ function renderQuestoes() {
   }).join('');
 }
 
+// ─── CONCLUIR REVISÃO DA FILA ESPAÇADA ─────────────────────────────────────────
+async function concluirRevisaoDaFila() {
+  if (!revisaoAtiva) return;
+
+  try {
+    const resHoje = await fetch(`${API_URL}/api/revisoes/hoje`);
+    const revisoesFila = await resHoje.json();
+
+    const revisaoParaConcluir = revisoesFila.find(r => {
+      const materiaDoState = state.materias.find(m => m.nome.toLowerCase() === r.nomeMateria.toLowerCase());
+      return materiaDoState && materiaDoState.id == revisaoAtiva.materiaId;
+    });
+
+    if (!revisaoParaConcluir) {
+      alert("Não foi possível localizar essa revisão ativa na fila!");
+      return;
+    }
+
+    const res = await fetch(`${API_URL}/api/revisoes/${revisaoParaConcluir.id}/concluir`, {
+      method: 'PUT'
+    });
+
+    if (res.ok) {
+      alert("Revisão concluída com sucesso! 🚀");
+      revisaoAtiva = null;
+      document.getElementById('session-notes').value = '';
+
+      await renderDashboard();
+      await renderRevisao();
+
+      showPage('revisao');
+    } else {
+      alert("Erro ao concluir a revisão no backend.");
+    }
+
+  } catch (error) {
+    console.error("Erro ao concluir a revisão:", error);
+  }
+}
+
+// ─── EXCLUSÃO DA SESSÃO DE ESTUDOS NO BANCO ────────────────────────────────────
+async function deletarSessaoHistorico(idSessao) {
+  if (!confirm("Tem certeza que deseja apagar este resumo e reverter o progresso dos assuntos? 🛑")) return;
+
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes/${idSessao}`, {
+      method: 'DELETE'
+    });
+
+    if (res.ok) {
+      await renderDashboard();
+      await renderHoje();
+      await renderMaterias();
+    } else {
+      alert("Erro ao tentar excluir a sessão no servidor.");
+    }
+  } catch (error) {
+    console.error("Erro na exclusão da sessão:", error);
+  }
+}
+
 // ─── POMODORO (Local) ─────────────────────────────────────────────────────────
 const POMO_MODES = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
 const POMO_LABELS = { work: 'FOCO', short: 'PAUSA', long: 'LONGA' };
@@ -793,10 +961,8 @@ document.getElementById('pomo-technique').addEventListener('change', function ()
   document.getElementById('technique-tip').textContent = TECHNIQUE_TIPS[this.value] || '';
 });
 
-// Pedir permissão para notificações
 if (Notification.permission === 'default') Notification.requestPermission();
 
-// 🟢 Faz o campo de notas crescer dinamicamente como uma folha infinita!
 function autoGrow(element) {
   element.style.height = "auto";
   element.style.height = (element.scrollHeight) + "px";

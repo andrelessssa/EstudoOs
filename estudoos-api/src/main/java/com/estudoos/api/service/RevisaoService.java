@@ -1,14 +1,14 @@
 package com.estudoos.api.service;
 
-import com.estudoos.api.dtos.RevisaoDTO;
-import com.estudoos.api.model.Revisao;
-import com.estudoos.api.repository.RevisaoRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Collectors;
+import com.estudoos.api.dtos.RevisaoDTO;
+import com.estudoos.api.model.Revisao;
+import com.estudoos.api.repository.RevisaoRepository;
 
 @Service
 public class RevisaoService {
@@ -19,15 +19,26 @@ public class RevisaoService {
         this.revisaoRepository = revisaoRepository;
     }
 
-    // 🔍 Busca a fila de revisões pendentes até a data atual
+    // 🔍 Busca a fila de revisões pendentes trazendo apenas a mais próxima de cada assunto!
     public List<RevisaoDTO> listarRevisoesDoDia() {
-        // 🟢 Cria a limitação de 10 itens na consulta do banco
-        org.springframework.data.domain.Pageable limiteDeDez = org.springframework.data.domain.PageRequest.of(0, 10);
-        
-        List<Revisao> revisoesPendentes = revisaoRepository.buscarRevisoesPendentes(limiteDeDez);
+        // 🟢 Removemos o limite rígido de 10 na Query para podermos agrupar tudo que está pendente primeiro
+        List<Revisao> revisoesPendentes = revisaoRepository.findAll();
 
-        // Converte a lista de Entidades do banco para a nossa lista de DTOs (Records)
-        return revisoesPendentes.stream()
+        // 🧠 MÁGICA DO STREAM: Filtra apenas as não feitas e agrupa mantendo a de menor data por Tópico!
+        List<Revisao> filtradas = revisoesPendentes.stream()
+                .filter(r -> !r.isFeita()) // Garante que só pegamos as pendentes
+                .collect(Collectors.toMap(
+                        revisao -> revisao.getTopico().getId(), // Chave: ID do Tópico (assunto)
+                        revisao -> revisao,                     // Valor: A própria revisão
+                        (r1, r2) -> r1.getDataAgendada().isBefore(r2.getDataAgendada()) ? r1 : r2 // Se houver duplicata, escolhe a com menor data! 📅
+                ))
+                .values().stream()
+                .sorted((r1, r2) -> r1.getDataAgendada().compareTo(r2.getDataAgendada())) // Ordena da mais urgente para a mais distante
+                .limit(10) // Aplica o limite de 10 na fila de exibição final
+                .collect(Collectors.toList());
+
+        // Converte a lista filtrada de Entidades para DTOs (Records)
+        return filtradas.stream()
                 .map(revisao -> new RevisaoDTO(
                         revisao.getId(),
                         revisao.getTopico().getNome(),
@@ -37,30 +48,51 @@ public class RevisaoService {
                         revisao.getEtapa()))
                 .collect(Collectors.toList());
     }
-
     // ⚡ Executa a conclusão da revisão quando você clica no botão "✓ Feita"
-    @Transactional
+ @Transactional
     public void concluirRevisao(Long id) {
-        Revisao revisao = revisaoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Agendamento de revisão não encontrado com o ID: " + id));
+        // 1. Busca a revisão atual que está sendo concluída
+        Revisao revisaoAtual = revisaoRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Revisão não encontrada com o ID: " + id));
 
-        revisao.setFeita(true); // Marca como revisado e remove da fila do dia
-        revisaoRepository.save(revisao);
+        // 2. Apenas marca como feita! ✅
+        revisaoAtual.setFeita(true);
+        revisaoRepository.save(revisaoAtual);
+        
+      
     }
+
+public java.util.Map<String, Long> obterEstatisticas() {
+    java.util.Map<String, Long> stats = new java.util.HashMap<>();
+    
+    java.time.LocalDate hoje = java.time.LocalDate.now();
+    java.time.LocalDate proximaSemana = hoje.plusDays(7);
+
+    // Busca todas as revisões do banco para processar os totais
+    java.util.List<Revisao> todas = revisaoRepository.findAll();
+
+    // 1. Quantas revisões estão agendadas para hoje ou atrasadas e não foram feitas
+    long hojeCount = todas.stream()
+        .filter(r -> !r.isFeita() && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
+        .count();
+
+    // 2. Quantas estão agendadas para os próximos 7 dias (incluindo hoje) e não foram feitas
+    long semanaCount = todas.stream()
+        .filter(r -> !r.isFeita() && !r.getDataAgendada().isBefore(hoje) && !r.getDataAgendada().isAfter(proximaSemana))
+        .count();
+
+    // 3. Quantas revisões já foram concluídas com sucesso no sistema
+    long feitasCount = todas.stream()
+        .filter(Revisao::isFeita)
+        .count();
+
+    stats.put("hoje", hojeCount);
+    stats.put("proximos7Dias", semanaCount);
+    stats.put("feitas", feitasCount);
+
+    return stats;
+}
+
 
     
-    public java.util.Map<String, Long> obterEstatisticasRevisao() {
-        java.util.Map<String, Long> stats = new java.util.HashMap<>();
-
-        stats.put("hoje", (long) listarRevisoesDoDia().size());
-
-        // Chamando o nosso método manual que contorna a geração automática
-        stats.put("proximos7Dias", revisaoRepository.contarRevisoesNoIntervalo(
-                java.time.LocalDate.now().plusDays(1),
-                java.time.LocalDate.now().plusDays(7)));
-
-        stats.put("feitas", revisaoRepository.countByFeitaTrue());
-
-        return stats;
-    }
 }

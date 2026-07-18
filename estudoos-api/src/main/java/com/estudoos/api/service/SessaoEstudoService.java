@@ -26,7 +26,7 @@ public class SessaoEstudoService {
     private final TopicoRepository topicoRepository;
     private final RevisaoRepository revisaoRepository;
 
-    // Matrizes de intervalos fixos da Curva de Ebbinghaus (3, 7, 15, 30 dias)
+    // Matrizes de intervalos fixed da Curva de Ebbinghaus (3, 7, 15, 30 dias)
     private static final int[] INTERVALOS_REVISAO = { 3, 7, 15, 30 };
 
     public SessaoEstudoService(SessaoEstudoRepository sessaoEstudoRepository,
@@ -51,8 +51,7 @@ public class SessaoEstudoService {
         sessao.setAnotacoes(dto.anotacoes());
         sessao.setMateria(materia);
 
-        // 3. Atualiza os Tópicos que você marcou como concluídos hoje e agenda as
-        // revisões
+        // 3. Atualiza os Tópicos que você marcou como concluídos hoje e agenda as revisões
         List<Long> topicosIds = dto.topicosConcluidosIds();
         List<Topico> topicosEstudados = new ArrayList<>();
 
@@ -90,15 +89,15 @@ public class SessaoEstudoService {
         sessaoEstudoRepository.save(sessao);
     }
 
-    @Transactional(readOnly = true)
+   @Transactional(readOnly = true)
     public List<SessaoDTO> listarTodas() {
         return sessaoEstudoRepository.findAll().stream()
                 .map(sessao -> new SessaoDTO(
-                        sessao.getMateria().getId(), // 1. materiaId
-                        sessao.getAnotacoes(), // 2. anotacoes
-                        sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()), // 3.
-                                                                                                      // topicosConcluidosIds
-                        sessao.getDataSessao() // 4. dataSessao vinda do banco!
+                        sessao.getId(),              // 🟢 1. ID da própria sessão
+                        sessao.getMateria().getId(), // 2. materiaId
+                        sessao.getAnotacoes(),       // 3. anotacoes
+                        sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()), // 4. topicosNomes
+                        sessao.getDataSessao()       // 5. dataSessao
                 ))
                 .collect(Collectors.toList());
     }
@@ -107,8 +106,7 @@ public class SessaoEstudoService {
         return sessaoEstudoRepository.findDistinctDatasEstudo();
     }
 
-    // 🟢 Ajustado para bater exatamente com o construtor do seu SessaoDTO!
-    public SessaoDTO obterUltimaSessaoDaMateria(Long materiaId) {
+   public SessaoDTO obterUltimaSessaoDaMateria(Long materiaId) {
         org.springframework.data.domain.Pageable limiteDeUm = org.springframework.data.domain.PageRequest.of(0, 1);
         List<SessaoEstudo> sessoes = sessaoEstudoRepository.findLatestSessionByMateriaId(materiaId, limiteDeUm);
 
@@ -118,14 +116,44 @@ public class SessaoEstudoService {
 
         SessaoEstudo sessao = sessoes.get(0);
 
-        // Mapeia na ordem correta: materiaId, anotacoes, topicosConcluidosIds,
-        // dataSessao 🚀
         return new SessaoDTO(
-                sessao.getMateria().getId(),
+                sessao.getId(),              // 🟢 1. ID da própria sessão
+                sessao.getMateria().getId(), 
                 sessao.getAnotacoes(),
-                sessao.getTopicos().stream().map(t -> t.getId()).collect(Collectors.toList()),
-                sessao.getDataSessao() // Passa o LocalDate direto do banco
+                sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()),
+                sessao.getDataSessao() 
         );
     }
 
+    @Transactional // 🔴 Essencial: Garante consistência total na exclusão e Rollback em caso de falha!
+    public void excluirSessaoEVoltarTopicos(Long sessaoId) {
+        // 1. Busca a sessão que será excluída do histórico
+        SessaoEstudo sessao = sessaoEstudoRepository.findById(sessaoId)
+                .orElseThrow(() -> new RuntimeException("Sessão não encontrada com o ID: " + sessaoId));
+
+        // 2. Passa por cada tópico associado a essa sessão para reverter o progresso
+        for (Topico topico : sessao.getTopicos()) {
+            topico.setConcluido(false);     // Tira o risco visual 🟩
+            topico.setDataConclusao(null);  // Reseta a data de finalização
+            topicoRepository.save(topico);
+
+            // 🔁 Remove os agendamentos futuros da Curva de Ebbinghaus gerados por esse assunto
+            revisaoRepository.deleteByTopicoId(topico.getId());
+        }
+
+        // 3. Com os tópicos limpos, deleta fisicamente a sessão (o texto do resumo some)
+        sessaoEstudoRepository.delete(sessao);
+    }
+    @Transactional // 🔴 Essencial para garantir a gravação segura no banco!
+    public void atualizarAnotacoesSessao(Long id, String novasAnotacoes) {
+        // 1. Busca a sessão que está sendo editada no caderno
+        SessaoEstudo sessao = sessaoEstudoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Sessão não encontrada com o ID: " + id));
+        
+        // 2. Altera estritamente o caderno de notas 📓
+        sessao.setAnotacoes(novasAnotacoes);
+        
+        // 3. Salva no banco preservando todas as datas, matérias e tópicos intactos! ✅
+        sessaoEstudoRepository.save(sessao);
+    }
 }
