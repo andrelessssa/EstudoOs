@@ -8,8 +8,7 @@ const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = []; // Controla os checks clicados na sessão de hoje
 let revisaoAtiva = null; // 🟢 Guarda os dados da revisão histórica selecionada
-let sessaoSendoEditadaId = null;
-
+let sessaoSendoEditadaId = null; // 🟢 Controla qual sessão do histórico está carregada no caderno
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -278,6 +277,11 @@ async function deleteMateria(id) {
 async function renderRevisao() {
   const el = document.getElementById('review-list');
   try {
+    if (!state.materias || state.materias.length === 0) {
+      const resMat = await fetch(`${API_URL}/api/materias`);
+      state.materias = await resMat.json();
+    }
+
     const [resHoje, resStats] = await Promise.all([
       fetch(`${API_URL}/api/revisoes/hoje`),
       fetch(`${API_URL}/api/revisoes/estatisticas`)
@@ -310,8 +314,7 @@ async function renderRevisao() {
       const cor = r.corMateria || "#6b7280";
       const dataAgendadaStr = r.dataAgendada;
 
-      const materiaDoState = state.materias.find(m => m.nome.toLowerCase() === materia.toLowerCase());
-      const materiaId = materiaDoState ? materiaDoState.id : "";
+      const materiaId = r.materiaId || (state.materias.find(m => m.nome.toLowerCase() === materia.toLowerCase())?.id || "");
 
       const intervalo = stage === 1 ? 1 : stage === 2 ? 7 : stage === 3 ? 15 : 30;
       const isDue = dataAgendadaStr <= hojeStr;
@@ -389,7 +392,7 @@ async function renderHoje() {
       autoGrow(document.getElementById('session-notes'));
 
       await loadSessionTopicsRevisao(revisaoAtiva.topicosConcluidosIds);
-      renderHistoricoSessaoUnica(revisaoAtiva);
+      renderHistoricoSessaoUnica(revisaoAtiva); // 🚀 Chama o design limpo para o card ativo!
 
     } else {
       // 🟢 MODO HOJE TRADICIONAL
@@ -405,7 +408,7 @@ async function renderHoje() {
       }
 
       loadSessionTopics();
-      renderHistoricoSessaoHoje(); // 🚀 Chama a listagem limpa atualizada!
+      renderHistoricoSessaoHoje();
     }
 
   } catch (error) {
@@ -464,6 +467,30 @@ async function saveSession() {
   if (!matId) { alert('Selecione uma matéria.'); return; }
   const notes = document.getElementById('session-notes').value.trim();
 
+  if (sessaoSendoEditadaId !== null) {
+    try {
+      const res = await fetch(`${API_URL}/api/sessoes/${sessaoSendoEditadaId}/anotacoes`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: notes
+      });
+
+      if (res.ok) {
+        alert("Caderno updated com sucesso! 📝");
+        sessaoSendoEditadaId = null;
+        document.getElementById('session-notes').value = '';
+        const btnSalvar = document.querySelector('#page-hoje .btn.primary');
+        if (btnSalvar) btnSalvar.innerHTML = '💾 Salvar sessão';
+        renderHoje();
+      } else {
+        alert("Erro ao atualizar o caderno no servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao editar notas da sessão:", error);
+    }
+    return;
+  }
+
   if (topicosSelecionadosLocalmente.length === 0) {
     alert("Selecione pelo menos um tópico concluído para salvar a sessão.");
     return;
@@ -485,7 +512,6 @@ async function saveSession() {
     if (res.ok) {
       document.getElementById('session-notes').value = '';
       topicosSelecionadosLocalmente = [];
-
       renderDashboard();
       renderHoje();
     } else {
@@ -521,6 +547,7 @@ async function loadSessionTopicsRevisao(topicosIdsConcluidos) {
   }
 }
 
+// 🟢 FUNÇÃO CORRIGIDA: Mesma estrutura vertical limpa (Sem a linha do bloco de notas)
 function renderHistoricoSessaoUnica(sessao) {
   const container = document.getElementById('session-history');
   if (!container) return;
@@ -529,33 +556,27 @@ function renderHistoricoSessaoUnica(sessao) {
   const nomeMateria = materia ? materia.nome : 'Matéria';
 
   const topicosHtml = sessao.topicosNomes && sessao.topicosNomes.length > 0
-    ? sessao.topicosNomes.map(nome => `<span class="badge warn" style="margin-right: 5px; font-size: 11px;">${nome}</span>`).join('')
-    : `<span class="badge warn" style="margin-right: 5px; font-size: 11px;">Focando no assunto agendado</span>`;
+    ? sessao.topicosNomes.map(nome => `<span class="badge warn" style="font-size: 11px; width: fit-content;">${nome}</span>`).join('')
+    : `<span class="badge warn" style="font-size: 11px; width: fit-content;">Focando no assunto agendado</span>`;
 
   const partes = sessao.dataSessao.split('-');
   const dataFormatada = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : sessao.dataSessao;
 
   container.innerHTML = `
-    <div class="review-card" style="border: 1px solid var(--accent); background: var(--surface2); width: 100%;">
-      <div class="review-info">
+    <div class="review-card" style="border: 1px solid var(--accent); background: var(--surface2); width: 100%; padding: 0.85rem;">
+      <div class="review-info" style="display: flex; flex-direction: column; gap: 6px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <span class="text-muted" style="font-size: 12px;">📅 ${dataFormatada}</span>
           <strong class="subject-name" style="font-size: 14px; color: var(--accent);">${nomeMateria} (Visualizando)</strong>
         </div>
-        
-        <div style="margin: 6px 0; display: flex; flex-wrap: wrap; gap: 4px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
           ${topicosHtml}
-        </div>
-
-        <div class="review-sub" style="font-size: 12px; color: var(--text); margin-top: 4px;">
-          📝 ${sessao.anotacoes || 'Sem anotações.'}
         </div>
       </div>
     </div>
   `;
 }
 
-// 🟢 MÉTODOS ATUALIZADOS DO LAYOUT CLEAN (SEM LINHA DO RESUMO)
 async function renderHistoricoSessaoHoje() {
   const container = document.getElementById('session-history');
   if (!container) return;
@@ -586,7 +607,6 @@ async function renderHistoricoSessaoHoje() {
       const partes = sessao.dataSessao.split('-');
       const dataFormatada = partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : sessao.dataSessao;
 
-      // 🟩 Alinhado: Matéria e Assunto em uma coluna vertical, mantendo a badge embaixo do nome!
       return `
         <div class="review-card" 
              onclick="reabrirSessaoNoCaderno(${JSON.stringify(sessao).replace(/"/g, '&quot;')})"
@@ -596,7 +616,6 @@ async function renderHistoricoSessaoHoje() {
               <span class="text-muted" style="font-size: 12px;">📅 ${dataFormatada}</span>
               <strong class="subject-name" style="font-size: 14px; color: var(--text);">${nomeMateria}</strong>
             </div>
-            <!-- 📚 O assunto agora fica exatamente abaixo do nome da matéria! -->
             <div style="display: flex; flex-wrap: wrap; gap: 4px;">
               ${topicosHtml}
             </div>
@@ -614,8 +633,6 @@ async function renderHistoricoSessaoHoje() {
 
 function reabrirSessaoNoCaderno(sessao) {
   if (!sessao) return;
-
-  // 🟢 Vincula o ID da sessão ativa para sabermos que qualquer alteração no caderno será uma Edição!
   sessaoSendoEditadaId = sessao.id;
 
   const selMateria = document.getElementById('session-mat');
@@ -630,72 +647,28 @@ function reabrirSessaoNoCaderno(sessao) {
     autoGrow(campoNotas);
   }
 
-  // Muda o texto do botão de salvar para indicar atualização
   const btnSalvar = document.querySelector('#page-hoje .btn.primary');
   if (btnSalvar && !revisaoAtiva) {
     btnSalvar.innerHTML = '🔄 Atualizar caderno';
   }
 }
 
-async function saveSession() {
-  const matId = document.getElementById('session-mat').value;
-  if (!matId) { alert('Selecione uma matéria.'); return; }
-  const notes = document.getElementById('session-notes').value.trim();
-
-  // 🟢 MODO EDIÇÃO: Se clicou em um card do histórico, atualiza apenas o texto das notas!
-  if (sessaoSendoEditadaId !== null) {
-    try {
-      const res = await fetch(`${API_URL}/api/sessoes/${sessaoSendoEditadaId}/anotacoes`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'text/plain' },
-        body: notes
-      });
-
-      if (res.ok) {
-        alert("Caderno atualizado com sucesso! 📝");
-        sessaoSendoEditadaId = null; // Reseta o estado de edição
-        document.getElementById('session-notes').value = '';
-        renderHoje(); // Recarrega a tela limpando os campos
-      } else {
-        alert("Erro ao atualizar o caderno no servidor.");
-      }
-    } catch (error) {
-      console.error("Erro ao editar notas da sessão:", error);
-    }
-    return;
-  }
-
-  // 🟦 MODO CRIAÇÃO TRADICIONAL (Caso não esteja editando nenhuma sessão existente)
-  if (topicosSelecionadosLocalmente.length === 0) {
-    alert("Selecione pelo menos um tópico concluído para salvar a sessão.");
-    return;
-  }
-
-  const sessaoDTO = {
-    materiaId: parseInt(matId),
-    topicosConcluidosIds: topicosSelecionadosLocalmente,
-    anotacoes: notes
-  };
+async function irParaSessaoDeRevisao(materiaId, topicoNome) {
+  if (!materiaId) return;
 
   try {
-    const res = await fetch(`${API_URL}/api/sessoes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessaoDTO)
-    });
-
+    const res = await fetch(`${API_URL}/api/sessoes/revisar/${materiaId}`);
     if (res.ok) {
-      document.getElementById('session-notes').value = '';
-      topicosSelecionadosLocalmente = [];
-      renderDashboard();
-      renderHoje();
+      revisaoAtiva = await res.json();
+      showPage('hoje');
     } else {
-      alert("Erro ao salvar sessão no banco. Verifique os logs do seu Spring Boot!");
+      alert("Nenhuma sessão de estudos salva encontrada para essa matéria!");
     }
   } catch (error) {
-    console.error("Erro ao salvar sessão:", error);
+    console.error("Erro ao carregar sessão para revisão:", error);
   }
 }
+
 // ─── QUESTÕES (Local em localStorage) ──────────────────────────────────────────
 let optionCount = 0;
 
@@ -887,7 +860,7 @@ const TECHNIQUE_TIPS = {
   'Resumo Ativo': 'Leia o material, depois feche e escreva os pontos principais com suas palavras. Repita até conseguir reproduzir sem olhar.',
   'Mapa Mental': 'Coloque o tema central no meio e ramifique os subtópicos. Use cores e ícones. Conecte conceitos relacionados com setas.',
   'Questões de Prova': 'Resolva questões de provas anteriores do concurso. Anote padrões de cobrança e revise os erros com atenção.',
-  'Flashcards Anki': 'Crie cards com pergunta na frente e resposta atrás. Foque em conceitos, fórmulas e definições. Revise diariamente.',
+  'Flashcards Anki': 'Crie cards com pergunta na frente e resposta atrás. Foque em conceitos, fórmulas e definitions. Revise diariamente.',
   'Leitura Focada': 'Leia sem sublinhar primeiro. Na segunda leitura, destaque apenas o essencial. Na terceira, anote dúvidas.',
   'Produção Textual': 'Escolha um tema, esboce a estrutura (introdução, desenvolvimento, conclusão) e escreva sem parar. Revise depois.'
 };

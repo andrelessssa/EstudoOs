@@ -93,11 +93,12 @@ public class SessaoEstudoService {
     public List<SessaoDTO> listarTodas() {
         return sessaoEstudoRepository.findAll().stream()
                 .map(sessao -> new SessaoDTO(
-                        sessao.getId(),              // 🟢 1. ID da própria sessão
-                        sessao.getMateria().getId(), // 2. materiaId
-                        sessao.getAnotacoes(),       // 3. anotacoes
-                        sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()), // 4. topicosNomes
-                        sessao.getDataSessao()       // 5. dataSessao
+                        sessao.getId(),
+                        sessao.getMateria().getId(),
+                        sessao.getAnotacoes(),
+                        sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()),   // IDs para os checks 🔢
+                        sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()), // Nomes para badges 📝
+                        sessao.getDataSessao()
                 ))
                 .collect(Collectors.toList());
     }
@@ -116,15 +117,16 @@ public class SessaoEstudoService {
 
         SessaoEstudo sessao = sessoes.get(0);
 
+        // 🟢 SOLUÇÃO: Envia tanto os IDs numéricos (para os checks) quanto os Nomes (para as badges)
         return new SessaoDTO(
-                sessao.getId(),              // 🟢 1. ID da própria sessão
-                sessao.getMateria().getId(), 
+                sessao.getId(),
+                sessao.getMateria().getId(),
                 sessao.getAnotacoes(),
-                sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()),
-                sessao.getDataSessao() 
+                sessao.getTopicos().stream().map(Topico::getId).collect(Collectors.toList()),   // topicosConcluidosIds 🔢
+                sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()), // topicosNomes 📝
+                sessao.getDataSessao()
         );
     }
-
     @Transactional // 🔴 Essencial: Garante consistência total na exclusão e Rollback em caso de falha!
     public void excluirSessaoEVoltarTopicos(Long sessaoId) {
         // 1. Busca a sessão que será excluída do histórico
