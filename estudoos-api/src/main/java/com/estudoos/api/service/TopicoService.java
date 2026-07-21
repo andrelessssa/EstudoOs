@@ -62,4 +62,7 @@ public class TopicoService {
             }
         }
     }
+    public List<Topico> listarTodos() {
+        return topicoRepository.findAll();
+    }
 }

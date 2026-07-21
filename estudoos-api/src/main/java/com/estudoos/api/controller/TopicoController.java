@@ -55,4 +55,8 @@ public class TopicoController {
         topicoService.adicionarTopicosAMateria(materiaId, topicos);
         return ResponseEntity.ok().build();
     }
+    @GetMapping
+    public ResponseEntity<List<Topico>> listarTodos() {
+        return ResponseEntity.ok(topicoService.listarTodos());
+    }
 }

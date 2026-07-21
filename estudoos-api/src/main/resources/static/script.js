@@ -434,48 +434,229 @@ async function renderRevisao() {
   }
 }
 
-// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
+/// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
 async function renderHoje() {
   const sel = document.getElementById('session-mat');
   if (!sel) return;
 
   try {
+    // 1. Busca todas as matérias cadastradas no Java
     const res = await fetch(`${API_URL}/api/materias`);
     state.materias = await res.json();
 
-    sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
-      state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+    // Salva a seleção atual (caso o usuário já tenha escolhido algo)
+    const valorAtual = sel.value;
+
+    // 2. Preenche o <select> com as matérias do banco
+    if (!state.materias || !state.materias.length) {
+      sel.innerHTML = '<option value="">Nenhuma matéria cadastrada</option>';
+    } else {
+      sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
+        state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+    }
+
+    // Restaura a opção selecionada ou mantém limpo
+    if (valorAtual) sel.value = valorAtual;
+
+    // 3. Se houver uma matéria selecionada, carrega os assuntos dela
+    if (sel.value) {
+      loadSessionTopics();
+    } else {
+      document.getElementById('session-topics-list').innerHTML =
+        '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    }
+
+    // 4. Carrega o histórico de sessões estudadas hoje
+    renderHistoricoSessaoHoje();
 
   } catch (error) {
     console.error("Erro na aba hoje:", error);
   }
 }
 
+// 📖 Carrega e exibe os assuntos da matéria selecionada com os checkboxes
 async function loadSessionTopics() {
   const matId = document.getElementById('session-mat').value;
-  if (!matId) return;
+  const el = document.getElementById('session-topics-list');
+  if (!el) return;
+
+  if (!matId) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    return;
+  }
 
   try {
     const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
     const topicos = await res.json();
+
+    if (!topicos || !topicos.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📂</div>Nenhum assunto cadastrado nesta matéria</div>';
+      return;
+    }
+
+    el.innerHTML = topicos.map(t => {
+      const idNum = parseInt(t.id);
+      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
+      const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
+
+      return `
+      <div class="topic-row" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="toggleTopicLocal('${t.id}')">
+        <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" id="check-${t.id}"></div>
+        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">${t.nome}</div>
+        ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);margin-left:auto;">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
+      </div>`;
+    }).join('');
+
   } catch (error) {
     console.error("Erro ao carregar tópicos:", error);
   }
 }
 
-function autoGrow(element) {
-  element.style.height = "auto";
-  element.style.height = (element.scrollHeight) + "px";
-}
+// 📌 Alterna a seleção do tópico na sessão atual
+function toggleTopicLocal(topicId) {
+  const checkEl = document.getElementById(`check-${topicId}`);
+  const nameEl = document.getElementById(`name-${topicId}`);
+  const idNum = parseInt(topicId);
 
-function resetNotes() {
-  const notes = document.getElementById('session-notes');
-  if (notes) {
-    notes.value = '';
-    notes.style.height = '180px';
+  if (!checkEl || !nameEl) return;
+
+  if (checkEl.classList.contains('checked')) {
+    checkEl.classList.remove('checked');
+    nameEl.classList.remove('done');
+    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
+  } else {
+    checkEl.classList.add('checked');
+    nameEl.classList.add('done');
+    topicosSelecionadosLocalmente.push(idNum);
   }
 }
 
+
+// 🗂️ Renderiza o histórico de sessões do dia mostrando os ASSUNTOS estudados
+// 🗂️ Renderiza o histórico de sessões mostrando apenas Matéria e Assunto
+async function renderHistoricoSessaoHoje() {
+  const hist = document.getElementById('session-history');
+  if (!hist) return;
+
+  try {
+    const [resSessoes, resTopicos] = await Promise.all([
+      fetch(`${API_URL}/api/sessoes`),
+      fetch(`${API_URL}/api/topicos`)
+    ]);
+
+    if (!resSessoes.ok) throw new Error();
+
+    const sessoesDoBanco = await resSessoes.json();
+    let todosTopicos = [];
+    if (resTopicos.ok) {
+      todosTopicos = await resTopicos.json();
+    }
+
+    const todayStr = today();
+    const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
+
+    if (!sessoesDeHoje.length) {
+      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
+      return;
+    }
+
+    const sessoesInvertidas = [...sessoesDeHoje].reverse();
+
+    hist.innerHTML = sessoesInvertidas.map(s => {
+      const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(today());
+      const materiaObj = state.materias.find(m => m.id == s.materiaId);
+      const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+
+      const idsTopicos = s.topicosConcluidosIds || s.topicosIds || [];
+      const nomesAssuntos = idsTopicos.map(id => {
+        const topico = todosTopicos.find(t => t.id == id);
+        return topico ? topico.nome : null;
+      }).filter(Boolean);
+
+      const textoAssuntos = nomesAssuntos.length > 0
+        ? nomesAssuntos.join(', ')
+        : 'Assuntos estudados';
+
+      return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
+          <div style="font-size:12px;color:var(--accent);margin-top:2px;font-weight:500;">📌 ${textoAssuntos}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    console.error("Erro ao renderizar histórico de sessões:", e);
+    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
+  }
+}
+
+
+// 💾 Dispara o POST para a Controller Java salvar a sessão de estudo
+async function saveSession() {
+  const matId = document.getElementById('session-mat').value;
+  if (!matId) {
+    alert('Selecione uma matéria primeiro.');
+    return;
+  }
+
+  const notes = document.getElementById('session-notes').value.trim();
+
+  if (topicosSelecionadosLocalmente.length === 0) {
+    alert("Selecione pelo menos um assunto concluído para salvar a sessão.");
+    return;
+  }
+
+  // Objeto JSON enviado para a API Spring Boot
+  const sessaoDTO = {
+    materiaId: parseInt(matId),
+    topicosConcluidosIds: topicosSelecionadosLocalmente,
+    anotacoes: notes
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessaoDTO)
+    });
+
+    if (res.ok) {
+      document.getElementById('session-notes').value = '';
+      topicosSelecionadosLocalmente = [];
+
+      // Atualiza a tela após a resposta positiva do Java (200/201 OK)
+      await loadSessionTopics();
+      await renderHistoricoSessaoHoje();
+      renderDashboard();
+    } else {
+      alert("Erro ao salvar sessão no servidor Java.");
+    }
+  } catch (error) {
+    console.error("Erro ao salvar sessão:", error);
+    alert("Erro de conexão com o servidor.");
+  }
+}
+
+// 📌 Alterna o estado visual do assunto e guarda o ID no array local para envio
+function toggleTopicLocal(topicId) {
+  const checkEl = document.getElementById(`check-${topicId}`);
+  const nameEl = document.getElementById(`name-${topicId}`);
+  const idNum = parseInt(topicId);
+
+  if (!checkEl || !nameEl) return;
+
+  if (checkEl.classList.contains('checked')) {
+    checkEl.classList.remove('checked');
+    nameEl.classList.remove('done');
+    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
+  } else {
+    checkEl.classList.add('checked');
+    nameEl.classList.add('done');
+    topicosSelecionadosLocalmente.push(idNum);
+  }
+}
 // ─── QUESTÕES & POMODORO ──────────────────────────────────────────────────────
 function openAddQuestion() {
   document.getElementById('question-panel').style.display = 'block';
