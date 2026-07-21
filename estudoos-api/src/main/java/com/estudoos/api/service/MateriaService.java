@@ -50,4 +50,25 @@ public class MateriaService {
     public List<Materia> listarTodas() {
         return materiaRepository.findAll();
     }
+    // ✏️ Atualizar apenas o nome da matéria
+    @Transactional
+    public Materia atualizarMateria(Long id, String novoNome) {
+        Materia materia = materiaRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Matéria não encontrada com ID: " + id));
+        materia.setNome(novoNome.trim());
+        return materiaRepository.save(materia);
+    }
+
+   // 🗑️ Excluir matéria e todos os seus tópicos associados
+   @Transactional
+    public void deletarMateria(Long id) {
+    if (!materiaRepository.existsById(id)) {
+        throw new RuntimeException("Matéria não encontrada com ID: " + id);
+    }
+    // 1. Limpa os tópicos da matéria primeiro
+    topicoRepository.deleteByMateriaId(id);
+    
+    // 2. Agora deleta a matéria sem conflito de chave estrangeira
+    materiaRepository.deleteById(id);
+}
 }
