@@ -514,44 +514,88 @@ function autoGrowNotes(element) {
 }
 
 // 📌 Decide o que fazer ao clicar no assunto (Marcar local X Abrir Resumo/Caderno)
+// 📌 Decidir o que fazer ao clicar no assunto (Concluído X Não concluído)
 async function tratarCliqueTopico(topicId, jaConcluido) {
   if (jaConcluido) {
     try {
-      const res = await fetch(`${API_URL}/api/topicos/${topicId}`);
-      if (res.ok) {
-        const topico = await res.json();
-        const notesEl = document.getElementById('session-notes');
+      // 1. Busca todas as sessões para encontrar a que contém esse tópico
+      const resSessoes = await fetch(`${API_URL}/api/sessoes`);
+      if (!resSessoes.ok) throw new Error();
+
+      const sessoes = await resSessoes.json();
+      const topicIdNum = parseInt(topicId);
+
+      // Encontra a sessão mais recente que contém este assunto
+      const sessaoDoTopico = sessoes.reverse().find(s => {
+        const ids = s.topicosConcluidosIds || s.topicosIds || [];
+        return ids.includes(topicIdNum);
+      });
+
+      const notesEl = document.getElementById('session-notes');
+
+      if (sessaoDoTopico) {
+        // 📖 2. Preenche o Caderno com a anotação gravada na sessão
         if (notesEl) {
-          notesEl.value = topico.anotacoes || `Resumo de ${topico.nome}: Nenhuma anotação cadastrada.`;
-          autoGrowNotes(notesEl); // Redimensiona a altura do caderno ao carregar o resumo
+          notesEl.value = sessaoDoTopico.anotacoes || "Nenhuma anotação registrada para esta sessão.";
+          autoGrowNotes(notesEl);
+        }
+
+        // 🗂️ 3. Exibe o card dessa sessão específica no Histórico
+        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
+
+      } else {
+        // Fallback: se não achar a sessão, busca no próprio tópico
+        const resTopico = await fetch(`${API_URL}/api/topicos/${topicId}`);
+        if (resTopico.ok) {
+          const topico = await resTopico.json();
+          if (notesEl) {
+            notesEl.value = topico.anotacoes || "Nenhuma anotação cadastrada para este assunto.";
+            autoGrowNotes(notesEl);
+          }
         }
       }
-      renderHistoricoSessaoHoje();
+
     } catch (e) {
-      console.error("Erro ao abrir caderno do assunto:", e);
+      console.error("Erro ao carregar resumo da sessão:", e);
     }
-    return;
+    return; // Não altera o checkbox de seleção local
   }
 
   toggleTopicLocal(topicId);
 }
 
-// 📌 Alterna a seleção do tópico novo na sessão atual
-function toggleTopicLocal(topicId) {
-  const checkEl = document.getElementById(`check-${topicId}`);
-  const nameEl = document.getElementById(`name-${topicId}`);
-  const idNum = parseInt(topicId);
+// 🗂️ Exibe o Card da Sessão Clicada no Histórico de Sessões
+async function exibirSessaoEspecificaNoHistorico(sessao) {
+  const hist = document.getElementById('session-history');
+  if (!hist) return;
 
-  if (!checkEl || !nameEl) return;
+  try {
+    const resTopicos = await fetch(`${API_URL}/api/topicos`);
+    const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
 
-  if (checkEl.classList.contains('checked')) {
-    checkEl.classList.remove('checked');
-    nameEl.classList.remove('done');
-    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
-  } else {
-    checkEl.classList.add('checked');
-    nameEl.classList.add('done');
-    topicosSelecionadosLocalmente.push(idNum);
+    const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(today());
+    const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
+    const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+
+    const idsTopicos = sessao.topicosConcluidosIds || sessao.topicosIds || [];
+    const nomesAssuntos = idsTopicos.map(id => {
+      const topico = todosTopicos.find(t => t.id == id);
+      return topico ? topico.nome : null;
+    }).filter(Boolean);
+
+    const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
+
+    hist.innerHTML = `
+      <div style="padding:.85rem; background:var(--surface2); border:1px solid var(--accent); border-radius:var(--radius); margin-bottom:.4rem; display:flex; gap:.75rem; align-items:flex-start;">
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    console.error("Erro ao renderizar card da sessão:", e);
   }
 }
 
