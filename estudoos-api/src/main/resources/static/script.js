@@ -1,5 +1,5 @@
 // ─── CONFIGURAÇÃO DA API ──────────────────────────────────────────────────────
-const API_URL = '';
+const API_URL = ''; // Deixe vazio se o frontend for servido pelo próprio Spring Boot
 
 // ─── CORES ───────────────────────────────────────────────────────────────────
 const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf', '#fb7185', '#60a5fa', '#a3e635', '#f97316'];
@@ -215,7 +215,6 @@ async function renderMaterias() {
       const pct = tot ? Math.round(done / tot * 100) : 0;
       const color = m.cor || COLORS[i % COLORS.length];
 
-      // 🟢 SEM BOTÃO 'X' QUANDO MODO EDIÇÃO ESTIVER DESATIVADO (fica totalmente limpo!)
       const botoesAcaoMateria = modoEdicao ? `
         <div class="actions-edicao" style="display:flex; gap:.4rem; margin-left:auto;">
           <button class="btn sm" onclick="event.stopPropagation(); openEditMateriaPanel('${m.id}', '${m.nome}')" title="Editar matéria">✏️</button>
@@ -434,20 +433,17 @@ async function renderRevisao() {
   }
 }
 
-/// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
+// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
 async function renderHoje() {
   const sel = document.getElementById('session-mat');
   if (!sel) return;
 
   try {
-    // 1. Busca todas as matérias cadastradas no Java
     const res = await fetch(`${API_URL}/api/materias`);
     state.materias = await res.json();
 
-    // Salva a seleção atual (caso o usuário já tenha escolhido algo)
     const valorAtual = sel.value;
 
-    // 2. Preenche o <select> com as matérias do banco
     if (!state.materias || !state.materias.length) {
       sel.innerHTML = '<option value="">Nenhuma matéria cadastrada</option>';
     } else {
@@ -455,10 +451,8 @@ async function renderHoje() {
         state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
     }
 
-    // Restaura a opção selecionada ou mantém limpo
     if (valorAtual) sel.value = valorAtual;
 
-    // 3. Se houver uma matéria selecionada, carrega os assuntos dela
     if (sel.value) {
       loadSessionTopics();
     } else {
@@ -466,7 +460,6 @@ async function renderHoje() {
         '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
     }
 
-    // 4. Carrega o histórico de sessões estudadas hoje
     renderHistoricoSessaoHoje();
 
   } catch (error) {
@@ -474,7 +467,7 @@ async function renderHoje() {
   }
 }
 
-// 📖 Carrega e exibe os assuntos da matéria selecionada com os checkboxes
+// 📖 Carrega e exibe os assuntos da matéria selecionada (Nome limpo sem tags extras)
 async function loadSessionTopics() {
   const matId = document.getElementById('session-mat').value;
   const el = document.getElementById('session-topics-list');
@@ -499,10 +492,11 @@ async function loadSessionTopics() {
       const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
       const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
 
-      return `
-      <div class="topic-row" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="toggleTopicLocal('${t.id}')">
+      return `<div class="topic-row ${jaConcluido ? 'concluido-banco' : ''}" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="tratarCliqueTopico('${t.id}', ${jaConcluido})">
         <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" id="check-${t.id}"></div>
-        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">${t.nome}</div>
+        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">
+          ${t.nome}
+        </div>
         ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);margin-left:auto;">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
       </div>`;
     }).join('');
@@ -512,7 +506,37 @@ async function loadSessionTopics() {
   }
 }
 
-// 📌 Alterna a seleção do tópico na sessão atual
+// 📏 Ajusta dinamicamente a altura do campo de anotações (empurra a tela)
+function autoGrowNotes(element) {
+  if (!element) return;
+  element.style.height = 'auto';
+  element.style.height = (element.scrollHeight) + 'px';
+}
+
+// 📌 Decide o que fazer ao clicar no assunto (Marcar local X Abrir Resumo/Caderno)
+async function tratarCliqueTopico(topicId, jaConcluido) {
+  if (jaConcluido) {
+    try {
+      const res = await fetch(`${API_URL}/api/topicos/${topicId}`);
+      if (res.ok) {
+        const topico = await res.json();
+        const notesEl = document.getElementById('session-notes');
+        if (notesEl) {
+          notesEl.value = topico.anotacoes || `Resumo de ${topico.nome}: Nenhuma anotação cadastrada.`;
+          autoGrowNotes(notesEl); // Redimensiona a altura do caderno ao carregar o resumo
+        }
+      }
+      renderHistoricoSessaoHoje();
+    } catch (e) {
+      console.error("Erro ao abrir caderno do assunto:", e);
+    }
+    return;
+  }
+
+  toggleTopicLocal(topicId);
+}
+
+// 📌 Alterna a seleção do tópico novo na sessão atual
 function toggleTopicLocal(topicId) {
   const checkEl = document.getElementById(`check-${topicId}`);
   const nameEl = document.getElementById(`name-${topicId}`);
@@ -531,9 +555,7 @@ function toggleTopicLocal(topicId) {
   }
 }
 
-
-// 🗂️ Renderiza o histórico de sessões do dia mostrando os ASSUNTOS estudados
-// 🗂️ Renderiza o histórico de sessões mostrando apenas Matéria e Assunto
+// 🗂️ Renderiza o histórico de sessões
 async function renderHistoricoSessaoHoje() {
   const hist = document.getElementById('session-history');
   if (!hist) return;
@@ -592,8 +614,7 @@ async function renderHistoricoSessaoHoje() {
   }
 }
 
-
-// 💾 Dispara o POST para a Controller Java salvar a sessão de estudo
+// 💾 Salva a sessão de estudo
 async function saveSession() {
   const matId = document.getElementById('session-mat').value;
   if (!matId) {
@@ -608,7 +629,6 @@ async function saveSession() {
     return;
   }
 
-  // Objeto JSON enviado para a API Spring Boot
   const sessaoDTO = {
     materiaId: parseInt(matId),
     topicosConcluidosIds: topicosSelecionadosLocalmente,
@@ -624,9 +644,11 @@ async function saveSession() {
 
     if (res.ok) {
       document.getElementById('session-notes').value = '';
+      const notesEl = document.getElementById('session-notes');
+      if (notesEl) autoGrowNotes(notesEl); // Reseta a altura do caderno
+
       topicosSelecionadosLocalmente = [];
 
-      // Atualiza a tela após a resposta positiva do Java (200/201 OK)
       await loadSessionTopics();
       await renderHistoricoSessaoHoje();
       renderDashboard();
@@ -639,24 +661,6 @@ async function saveSession() {
   }
 }
 
-// 📌 Alterna o estado visual do assunto e guarda o ID no array local para envio
-function toggleTopicLocal(topicId) {
-  const checkEl = document.getElementById(`check-${topicId}`);
-  const nameEl = document.getElementById(`name-${topicId}`);
-  const idNum = parseInt(topicId);
-
-  if (!checkEl || !nameEl) return;
-
-  if (checkEl.classList.contains('checked')) {
-    checkEl.classList.remove('checked');
-    nameEl.classList.remove('done');
-    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
-  } else {
-    checkEl.classList.add('checked');
-    nameEl.classList.add('done');
-    topicosSelecionadosLocalmente.push(idNum);
-  }
-}
 // ─── QUESTÕES & POMODORO ──────────────────────────────────────────────────────
 function openAddQuestion() {
   document.getElementById('question-panel').style.display = 'block';
@@ -681,8 +685,17 @@ function updatePomoDisplay() {
   if (disp) disp.textContent = `${m}:${s}`;
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
+// ─── INIT & LISTENERS ─────────────────────────────────────────────────────────
 document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+// Escuta a digitação no caderno para expandir a altura automaticamente enquanto digita
+const notesInput = document.getElementById('session-notes');
+if (notesInput) {
+  notesInput.addEventListener('input', function () {
+    autoGrowNotes(this);
+  });
+}
+
 renderDashboard();
 updatePomoDisplay();
