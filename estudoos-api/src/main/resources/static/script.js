@@ -10,6 +10,7 @@ let topicosSelecionadosLocalmente = [];
 let revisaoAtiva = null;
 let modoEdicao = false;
 let sessaoEmEdicaoId = null;
+let dataAtivaSessao = today(); // 📌 Guarda a data selecionada no calendário
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -31,7 +32,9 @@ function showPage(id) {
 
   if (id === 'dashboard') renderDashboard();
   if (id === 'materias') renderMaterias();
-  if (id === 'hoje') renderHoje();
+  if (id === 'hoje') {
+    renderHoje();
+  }
   if (id === 'revisao') renderRevisao();
   if (id === 'questoes') renderQuestoes();
 }
@@ -125,7 +128,7 @@ async function renderDashboard() {
       }).join('');
     }
 
-    // 2. Renderiza o Calendário
+    // 2. Renderiza o Calendário Interativo
     const cal = document.getElementById('dash-calendar');
     if (cal) {
       const now = new Date();
@@ -157,7 +160,9 @@ async function renderDashboard() {
         if (isToday) cls += ' today';
         else if (foiEstudado) cls += ' studied';
 
-        html += `<div class="${cls}"><span class="cal-day-num">${d}</span></div>`;
+        const eventoClique = foiEstudado || isToday ? `onclick="irParaDataEspecifica('${ds}')" style="cursor:pointer;"` : '';
+
+        html += `<div class="${cls}" ${eventoClique}><span class="cal-day-num">${d}</span></div>`;
       }
       html += '</div>';
       cal.innerHTML = html;
@@ -165,6 +170,129 @@ async function renderDashboard() {
 
   } catch (error) {
     console.error("Erro ao carregar o Dashboard:", error);
+  }
+}
+
+// 📅 Navega do Calendário direto para a aba Hoje fixando a data selecionada
+async function irParaDataEspecifica(dataSelecionada) {
+  dataAtivaSessao = dataSelecionada; // 🎯 Trava a data clicada
+  showPage('hoje');
+}
+
+// 🗂️ Renderiza o histórico de sessões filtrado por uma data específica
+async function renderHistoricoSessaoPorData(dataFiltro) {
+  const hist = document.getElementById('session-history');
+  if (!hist) return;
+
+  try {
+    const [resSessoes, resTopicos] = await Promise.all([
+      fetch(`${API_URL}/api/sessoes`),
+      fetch(`${API_URL}/api/topicos`)
+    ]);
+
+    if (!resSessoes.ok) throw new Error();
+
+    const sessoesDoBanco = await resSessoes.json();
+    let todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
+
+    // 🎯 Filtra estritamente pela data do calendário
+    const sessoesDaData = sessoesDoBanco.filter(s => s.dataSessao === dataFiltro);
+
+    if (!sessoesDaData.length) {
+      hist.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
+
+      resetaModoSalvarSessao();
+      const notesEl = document.getElementById('session-notes');
+      if (notesEl) {
+        notesEl.value = '';
+        autoGrowNotes(notesEl);
+      }
+      return;
+    }
+
+    const sessoesInvertidas = [...sessoesDaData].reverse();
+
+    // 📖 Carrega a primeira sessão do dia selecionado no caderno
+    const primeiraSessao = sessoesInvertidas[0];
+    if (primeiraSessao) {
+      const selMat = document.getElementById('session-mat');
+      if (selMat && primeiraSessao.materiaId) {
+        selMat.value = primeiraSessao.materiaId;
+        await loadSessionTopics();
+      }
+
+      const notesEl = document.getElementById('session-notes');
+      if (notesEl) {
+        notesEl.value = primeiraSessao.anotacoes || "";
+        autoGrowNotes(notesEl);
+      }
+
+      sessaoEmEdicaoId = primeiraSessao.id;
+      const btnSave = document.getElementById('btn-save-session');
+      if (btnSave) {
+        btnSave.innerHTML = '🔄 Atualizar anotação';
+        btnSave.classList.add('btn-update');
+      }
+    }
+
+    hist.innerHTML = sessoesInvertidas.map(s => {
+      const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(dataFiltro);
+      const materiaObj = state.materias.find(m => m.id == s.materiaId);
+      const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+
+      const idsTopicos = s.topicosConcluidosIds || s.topicosIds || [];
+      const nomesAssuntos = idsTopicos.map(id => {
+        const topico = todosTopicos.find(t => t.id == id);
+        return topico ? topico.nome : null;
+      }).filter(Boolean);
+
+      const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
+
+      return `<div class="historico-card-destaque" style="cursor:pointer;" onclick="carregarSessaoDiretaNoCaderno(${s.id})">
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch (e) {
+    console.error("Erro ao renderizar histórico por data:", e);
+    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Erro ao carregar histórico</div>';
+  }
+}
+
+// 📖 Auxiliar para carregar uma sessão do histórico diretamente no caderno
+async function carregarSessaoDiretaNoCaderno(sessaoId) {
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes`);
+    if (!res.ok) return;
+    const sessoes = await res.json();
+    const sessao = sessoes.find(s => s.id == sessaoId);
+
+    if (sessao) {
+      const selMat = document.getElementById('session-mat');
+      if (selMat && sessao.materiaId) {
+        selMat.value = sessao.materiaId;
+        await loadSessionTopics();
+      }
+
+      const notesEl = document.getElementById('session-notes');
+      if (notesEl) {
+        notesEl.value = sessao.anotacoes || "";
+        autoGrowNotes(notesEl);
+      }
+
+      sessaoEmEdicaoId = sessao.id;
+      const btnSave = document.getElementById('btn-save-session');
+      if (btnSave) {
+        btnSave.innerHTML = '🔄 Atualizar anotação';
+        btnSave.classList.add('btn-update');
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao carregar sessão no caderno:", e);
   }
 }
 
@@ -439,6 +567,13 @@ async function renderHoje() {
   const sel = document.getElementById('session-mat');
   if (!sel) return;
 
+  // 1. Atualiza o título da tela com a dataAtivaSessao travada
+  const hojeDateEl = document.getElementById('hoje-date');
+  if (hojeDateEl) {
+    const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
+    hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
   try {
     const res = await fetch(`${API_URL}/api/materias`);
     state.materias = await res.json();
@@ -455,13 +590,14 @@ async function renderHoje() {
     if (valorAtual) sel.value = valorAtual;
 
     if (sel.value) {
-      loadSessionTopics();
+      await loadSessionTopics();
     } else {
       document.getElementById('session-topics-list').innerHTML =
         '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
     }
 
-    renderHistoricoSessaoHoje();
+    // 2. Filtra o histórico exclusivamente para a dataAtivaSessao
+    await renderHistoricoSessaoPorData(dataAtivaSessao);
 
   } catch (error) {
     console.error("Erro na aba hoje:", error);
@@ -507,15 +643,16 @@ async function loadSessionTopics() {
   }
 }
 
-// 📏 Ajusta dinamicamente a altura do campo de anotações (empurra a tela)
+// 📏 Ajusta dinamicamente a altura do campo de anotações
 function autoGrowNotes(element) {
   if (!element) return;
   element.style.height = 'auto';
   element.style.height = (element.scrollHeight) + 'px';
 }
 
-// 🔗 Navega da tela Matérias direto para o Caderno na aba Hoje ao clicar no assunto
+// 🔗 Navega da tela Matérias direto para o Caderno na aba Hoje
 async function irParaCadernoMateria(materiaId, topicoId) {
+  dataAtivaSessao = today();
   showPage('hoje');
 
   const selMat = document.getElementById('session-mat');
@@ -546,14 +683,13 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
       const btnSave = document.getElementById('btn-save-session');
 
       if (sessaoDoTopico) {
-        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para o modo edição
+        sessaoEmEdicaoId = sessaoDoTopico.id;
 
         if (notesEl) {
           notesEl.value = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
         }
 
-        // 🔄 Muda o botão para modo Atualizar usando classe CSS
         if (btnSave) {
           btnSave.innerHTML = '🔄 Atualizar anotação';
           btnSave.classList.add('btn-update');
@@ -568,7 +704,6 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
     return;
   }
 
-  // Se for assunto novo, reseta o modo edição e volta o botão para 'Salvar'
   resetaModoSalvarSessao();
   toggleTopicLocal(topicId);
 }
@@ -602,7 +737,7 @@ function resetaModoSalvarSessao() {
   }
 }
 
-// 🗂️ Exibe o Card da Sessão Clicada no Histórico de Sessões
+// 🗂️ Exibe o Card da Sessão Clicada no Histórico
 async function exibirSessaoEspecificaNoHistorico(sessao) {
   const hist = document.getElementById('session-history');
   if (!hist) return;
@@ -611,7 +746,7 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
     const resTopicos = await fetch(`${API_URL}/api/topicos`);
     const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
 
-    const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(today());
+    const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(dataAtivaSessao);
     const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
     const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
 
@@ -637,70 +772,15 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
   }
 }
 
-// 🗂️ Renderiza o histórico de sessões
+// 🗂️ Renderiza o histórico respeitando a data selecionada
 async function renderHistoricoSessaoHoje() {
-  const hist = document.getElementById('session-history');
-  if (!hist) return;
-
-  try {
-    const [resSessoes, resTopicos] = await Promise.all([
-      fetch(`${API_URL}/api/sessoes`),
-      fetch(`${API_URL}/api/topicos`)
-    ]);
-
-    if (!resSessoes.ok) throw new Error();
-
-    const sessoesDoBanco = await resSessoes.json();
-    let todosTopicos = [];
-    if (resTopicos.ok) {
-      todosTopicos = await resTopicos.json();
-    }
-
-    const todayStr = today();
-    const sessoesDeHoje = sessoesDoBanco.filter(s => s.dataSessao === todayStr);
-
-    if (!sessoesDeHoje.length) {
-      hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
-      return;
-    }
-
-    const sessoesInvertidas = [...sessoesDeHoje].reverse();
-
-    hist.innerHTML = sessoesInvertidas.map(s => {
-      const dataFormatada = s.dataSessao ? dateStr(s.dataSessao) : dateStr(today());
-      const materiaObj = state.materias.find(m => m.id == s.materiaId);
-      const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
-
-      const idsTopicos = s.topicosConcluidosIds || s.topicosIds || [];
-      const nomesAssuntos = idsTopicos.map(id => {
-        const topico = todosTopicos.find(t => t.id == id);
-        return topico ? topico.nome : null;
-      }).filter(Boolean);
-
-      const textoAssuntos = nomesAssuntos.length > 0
-        ? nomesAssuntos.join(', ')
-        : 'Assuntos estudados';
-
-      return `<div style="padding:.85rem;background:var(--surface2);border-radius:var(--radius);margin-bottom:.4rem;display:flex;gap:.75rem;align-items:flex-start;">
-        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;padding-top:2px;">📅 ${dataFormatada}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px;color:var(--accent);margin-top:2px;font-weight:500;">📌 ${textoAssuntos}</div>
-        </div>
-      </div>`;
-    }).join('');
-
-  } catch (e) {
-    console.error("Erro ao renderizar histórico de sessões:", e);
-    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje</div>';
-  }
+  await renderHistoricoSessaoPorData(dataAtivaSessao);
 }
 
 // 💾 Salva uma nova sessão OU 🔄 Atualiza apenas o caderno da sessão existente
 async function saveSession() {
   const notes = document.getElementById('session-notes').value.trim();
 
-  // 🔄 MODO EDIÇÃO: Atualiza apenas as anotações da sessão mantendo as datas
   if (sessaoEmEdicaoId) {
     try {
       const res = await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
@@ -713,7 +793,7 @@ async function saveSession() {
         resetaModoSalvarSessao();
         document.getElementById('session-notes').value = '';
         autoGrowNotes(document.getElementById('session-notes'));
-        renderHistoricoSessaoHoje();
+        await renderHistoricoSessaoHoje();
       } else {
         alert("Erro ao atualizar anotação no servidor.");
       }
@@ -723,7 +803,6 @@ async function saveSession() {
     return;
   }
 
-  // 💾 MODO CRIAÇÃO: Cria nova sessão normalmente
   const matId = document.getElementById('session-mat').value;
   if (!matId) {
     alert('Selecione uma matéria primeiro.');
@@ -795,7 +874,6 @@ function updatePomoDisplay() {
 document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-// Escuta a digitação no caderno para expandir a altura automaticamente enquanto digita
 const notesInput = document.getElementById('session-notes');
 if (notesInput) {
   notesInput.addEventListener('input', function () {
