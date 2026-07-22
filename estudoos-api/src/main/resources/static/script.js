@@ -245,7 +245,7 @@ async function renderMaterias() {
             ` : '';
 
         return `
-            <div class="topic-row" style="display:flex; align-items:center; justify-content:space-between; padding: 0.4rem 0.8rem; margin-bottom: 0.2rem; background: var(--surface2); border-radius: var(--radius);">
+            <div class="topic-row" style="display:flex; align-items:center; justify-content:space-between; padding: 0.4rem 0.8rem; margin-bottom: 0.2rem; background: var(--surface2); border-radius: var(--radius); cursor: ${jaConcluido && !modoEdicao ? 'pointer' : 'default'};" onclick="${jaConcluido && !modoEdicao ? `irParaCadernoMateria('${m.id}', '${t.id}')` : ''}">
               <div style="display:flex; align-items:center; gap: 0.5rem;">
                 <div class="topic-check ${jaConcluido ? 'checked' : ''}" style="pointer-events: none;"></div>
                 <div class="topic-name ${jaConcluido ? 'done' : ''}">${t.nome}</div>
@@ -512,6 +512,19 @@ function autoGrowNotes(element) {
   if (!element) return;
   element.style.height = 'auto';
   element.style.height = (element.scrollHeight) + 'px';
+}
+
+// 🔗 Navega da tela Matérias direto para o Caderno na aba Hoje ao clicar no assunto
+async function irParaCadernoMateria(materiaId, topicoId) {
+  showPage('hoje');
+
+  const selMat = document.getElementById('session-mat');
+  if (selMat) {
+    selMat.value = materiaId;
+  }
+
+  await loadSessionTopics();
+  await tratarCliqueTopico(topicoId, true);
 }
 
 // 📌 Decidir o que fazer ao clicar no assunto (Concluído X Não concluído)

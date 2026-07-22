@@ -21,4 +21,6 @@ public interface SessaoEstudoRepository extends JpaRepository<SessaoEstudo, Long
         @Param("materiaId") Long materiaId, 
         org.springframework.data.domain.Pageable pageable
     );
+
+    List<SessaoEstudo> findByMateriaId(Long id);
 }
