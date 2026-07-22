@@ -1,6 +1,9 @@
 package com.estudoos.api.service;
 
+import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -19,25 +22,22 @@ public class RevisaoService {
         this.revisaoRepository = revisaoRepository;
     }
 
-    // 🔍 Busca a fila de revisões pendentes trazendo apenas a mais próxima de cada assunto!
     public List<RevisaoDTO> listarRevisoesDoDia() {
-        // 🟢 Removemos o limite rígido de 10 na Query para podermos agrupar tudo que está pendente primeiro
+        LocalDate hoje = LocalDate.now();
         List<Revisao> revisoesPendentes = revisaoRepository.findAll();
 
-        // 🧠 MÁGICA DO STREAM: Filtra apenas as não feitas e agrupa mantendo a de menor data por Tópico!
         List<Revisao> filtradas = revisoesPendentes.stream()
-                .filter(r -> !r.isFeita()) // Garante que só pegamos as pendentes
+                .filter(r -> !r.isFeita())
+                .filter(r -> r.getDataAgendada() != null
+                        && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
                 .collect(Collectors.toMap(
-                        revisao -> revisao.getTopico().getId(), // Chave: ID do Tópico (assunto)
-                        revisao -> revisao,                     // Valor: A própria revisão
-                        (r1, r2) -> r1.getDataAgendada().isBefore(r2.getDataAgendada()) ? r1 : r2 // Se houver duplicata, escolhe a com menor data! 📅
-                ))
+                        revisao -> revisao.getTopico().getId(),
+                        revisao -> revisao,
+                        (r1, r2) -> r1.getDataAgendada().isBefore(r2.getDataAgendada()) ? r1 : r2))
                 .values().stream()
-                .sorted((r1, r2) -> r1.getDataAgendada().compareTo(r2.getDataAgendada())) // Ordena da mais urgente para a mais distante
-                .limit(10) // Aplica o limite de 10 na fila de exibição final
+                .sorted((r1, r2) -> r1.getDataAgendada().compareTo(r2.getDataAgendada()))
                 .collect(Collectors.toList());
 
-        // Converte a lista filtrada de Entidades para DTOs (Records)
         return filtradas.stream()
                 .map(revisao -> new RevisaoDTO(
                         revisao.getId(),
@@ -48,51 +48,78 @@ public class RevisaoService {
                         revisao.getEtapa()))
                 .collect(Collectors.toList());
     }
-    // ⚡ Executa a conclusão da revisão quando você clica no botão "✓ Feita"
- @Transactional
-    public void concluirRevisao(Long id) {
-        // 1. Busca a revisão atual que está sendo concluída
-        Revisao revisaoAtual = revisaoRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Revisão não encontrada com o ID: " + id));
 
-        // 2. Apenas marca como feita! ✅
+    // ⚡ Conclui a revisão e gera o agendamento preenchendo todos os campos
+    // obrigatórios! 🧠🛡️
+    @Transactional
+    public void concluirRevisao(Long id) {
+        Revisao revisaoAtual = revisaoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Revisão não encontrada com o ID: " + id));
+
+        // 1. Marca a revisão atual como feita ✅
         revisaoAtual.setFeita(true);
         revisaoRepository.save(revisaoAtual);
-        
-      
+
+        // 2. Determina qual o intervalo e a etapa atual (proteção contra nulos) 📊
+        Integer intervaloAtual = revisaoAtual.getIntervaloDias();
+        if (intervaloAtual == null) {
+            intervaloAtual = 3;
+        }
+
+        int proximoIntervalo = 0;
+        int proximaEtapa = 1;
+
+        // 🔄 Ciclo de Ebbinghaus: 3 dias (etapa 1) ➔ 7 dias (etapa 2) ➔ 15 dias (etapa
+        // 3) ➔ 30 dias (etapa 4)
+        if (intervaloAtual <= 3) {
+            proximoIntervalo = 7;
+            proximaEtapa = 2;
+        } else if (intervaloAtual == 7) {
+            proximoIntervalo = 15;
+            proximaEtapa = 3;
+        } else if (intervaloAtual == 15) {
+            proximoIntervalo = 30;
+            proximaEtapa = 4;
+        }
+
+        // 3. Se houver próxima etapa, grava com TODOS os campos não nulos! 📅
+        if (proximoIntervalo > 0 && revisaoAtual.getTopico() != null) {
+            Revisao proximaRevisao = new Revisao();
+            proximaRevisao.setTopico(revisaoAtual.getTopico());
+            proximaRevisao.setDataAgendada(LocalDate.now().plusDays(proximoIntervalo));
+            proximaRevisao.setIntervaloDias(proximoIntervalo); // 🟢 Preenchido! Evita erro 500 no Postgres
+            proximaRevisao.setEtapa(proximaEtapa); // 🟢 Preenchido!
+            proximaRevisao.setFeita(false);
+
+            revisaoRepository.save(proximaRevisao);
+        }
     }
 
-public java.util.Map<String, Long> obterEstatisticas() {
-    java.util.Map<String, Long> stats = new java.util.HashMap<>();
-    
-    java.time.LocalDate hoje = java.time.LocalDate.now();
-    java.time.LocalDate proximaSemana = hoje.plusDays(7);
+    public Map<String, Long> obterEstatisticas() {
+        Map<String, Long> stats = new HashMap<>();
+        LocalDate hoje = LocalDate.now();
+        LocalDate proximaSemana = hoje.plusDays(7);
 
-    // Busca todas as revisões do banco para processar os totais
-    java.util.List<Revisao> todas = revisaoRepository.findAll();
+        List<Revisao> todas = revisaoRepository.findAll();
 
-    // 1. Quantas revisões estão agendadas para hoje ou atrasadas e não foram feitas
-    long hojeCount = todas.stream()
-        .filter(r -> !r.isFeita() && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
-        .count();
+        long hojeCount = todas.stream()
+                .filter(r -> !r.isFeita() && r.getDataAgendada() != null
+                        && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
+                .count();
 
-    // 2. Quantas estão agendadas para os próximos 7 dias (incluindo hoje) e não foram feitas
-    long semanaCount = todas.stream()
-        .filter(r -> !r.isFeita() && !r.getDataAgendada().isBefore(hoje) && !r.getDataAgendada().isAfter(proximaSemana))
-        .count();
+        long semanaCount = todas.stream()
+                .filter(r -> !r.isFeita() && r.getDataAgendada() != null && !r.getDataAgendada().isBefore(hoje)
+                        && !r.getDataAgendada().isAfter(proximaSemana))
+                .count();
 
-    // 3. Quantas revisões já foram concluídas com sucesso no sistema
-    long feitasCount = todas.stream()
-        .filter(Revisao::isFeita)
-        .count();
+        long feitasCount = todas.stream()
+                .filter(Revisao::isFeita)
+                .count();
 
-    stats.put("hoje", hojeCount);
-    stats.put("proximos7Dias", semanaCount);
-    stats.put("feitas", feitasCount);
+        stats.put("hoje", hojeCount);
+        stats.put("proximos7Dias", semanaCount);
+        stats.put("feitas", feitasCount);
 
-    return stats;
-}
-
-
-    
+        return stats;
+    }
 }

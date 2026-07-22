@@ -7,10 +7,10 @@ const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf'
 // ─── STATE LOCAL ─────────────────────────────────────────────────────────────
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = [];
-let revisaoAtiva = null;
+let revisaoAtiva = null; // 📌 Guarda o ID da revisão em andamento
 let modoEdicao = false;
 let sessaoEmEdicaoId = null;
-let dataAtivaSessao = today(); // 📌 Guarda a data selecionada no calendário
+let dataAtivaSessao = today();
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -26,15 +26,13 @@ function showPage(id) {
     document.querySelectorAll('.tab')[idx]?.classList.add('active');
   }
 
-  if (id !== 'hoje') {
+  if (id !== 'hoje' && id !== 'revisao') {
     revisaoAtiva = null;
   }
 
   if (id === 'dashboard') renderDashboard();
   if (id === 'materias') renderMaterias();
-  if (id === 'hoje') {
-    renderHoje();
-  }
+  if (id === 'hoje') renderHoje();
   if (id === 'revisao') renderRevisao();
   if (id === 'questoes') renderQuestoes();
 }
@@ -104,7 +102,6 @@ async function renderDashboard() {
     document.getElementById('dash-rate').textContent = rate;
     document.getElementById('dash-reviews').textContent = revisoesHoje.length;
 
-    // 1. Renderiza Progresso por Matéria
     const pl = document.getElementById('dash-progress-list');
     if (!materiasComTopicos.length) {
       pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
@@ -128,7 +125,6 @@ async function renderDashboard() {
       }).join('');
     }
 
-    // 2. Renderiza o Calendário Interativo
     const cal = document.getElementById('dash-calendar');
     if (cal) {
       const now = new Date();
@@ -173,13 +169,430 @@ async function renderDashboard() {
   }
 }
 
-// 📅 Navega do Calendário direto para a aba Hoje fixando a data selecionada
 async function irParaDataEspecifica(dataSelecionada) {
   dataAtivaSessao = dataSelecionada;
   showPage('hoje');
 }
 
-// 🗂️ Renderiza o histórico de sessões filtrado por uma data específica
+// ─── REVISÃO ESPAÇADA & FILA ─────────────────────────────────────────────────
+async function renderRevisao() {
+  const elFila = document.getElementById('rev-queue') || document.getElementById('revisoes-list');
+
+  try {
+    const [resHoje, resStats] = await Promise.all([
+      fetch(`${API_URL}/api/revisoes/hoje`),
+      fetch(`${API_URL}/api/revisoes/estatisticas`)
+    ]);
+
+    const revisoesHojeEAtrasadas = await resHoje.json();
+    const stats = await resStats.json();
+
+    const cardHoje = document.getElementById('rev-today');
+    const cardSemana = document.getElementById('rev-week');
+    const cardFeitas = document.getElementById('rev-done');
+
+    if (cardHoje) cardHoje.textContent = stats.hoje ?? revisoesHojeEAtrasadas.length;
+    if (cardSemana) cardSemana.textContent = stats.proximos7Dias ?? 0;
+    if (cardFeitas) cardFeitas.textContent = stats.feitas ?? 0;
+
+    if (!elFila) return;
+
+    if (!revisoesHojeEAtrasadas || !revisoesHojeEAtrasadas.length) {
+      elFila.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">🔄</div>
+          Nenhuma revisão pendente ou atrasada para hoje — continue estudando! 🎉
+        </div>`;
+      return;
+    }
+
+    const hojeStr = today();
+
+    elFila.innerHTML = revisoesHojeEAtrasadas.map(r => {
+      const eAtrasada = r.dataAgendada < hojeStr;
+      const dataFormatada = dateStr(r.dataAgendada);
+
+      const tagStatus = eAtrasada
+        ? `<span style="background:#f87171; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:8px;">ATRASADA</span>`
+        : `<span style="background:#6c7bff; color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:8px;">HOJE</span>`;
+
+      const nomeTopico = r.topicoNome || r.nomeTopico || 'Assunto';
+
+      return `
+        <div style="padding:0.85rem 1rem; background:var(--surface2); border-radius:var(--radius); margin-bottom:0.5rem; display:flex; align-items:center; justify-content:space-between;">
+          <div>
+            <div style="font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center;">
+              📌 ${nomeTopico} ${tagStatus}
+            </div>
+            <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+              📚 ${r.materiaNome || r.nomeMateria || 'Matéria'} · 📅 Agendada: ${dataFormatada}
+            </div>
+          </div>
+          <button class="btn sm primary" onclick="iniciarRevisaoNoCaderno(${r.id}, '${nomeTopico.replace(/'/g, "\\'")}')" style="cursor:pointer; background:var(--accent);">
+            🔄 Revisar agora
+          </button>
+        </div>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error("Erro ao carregar Fila de Revisões:", error);
+  }
+}
+
+// 📖 Redireciona a revisão para a aba HOJE, destaca a matéria/assunto e carrega a sessão no caderno 🚀
+async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
+  revisaoAtiva = revisaoId;
+  dataAtivaSessao = today();
+  showPage('hoje');
+
+  try {
+    const [resTopicos, resSessoes] = await Promise.all([
+      fetch(`${API_URL}/api/topicos`),
+      fetch(`${API_URL}/api/sessoes`)
+    ]);
+
+    const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
+    const sessoes = resSessoes.ok ? await resSessoes.json() : [];
+
+    const topicoEncontrado = todosTopicos.find(t => t.nome.trim().toLowerCase() === nomeTopico.trim().toLowerCase());
+
+    if (topicoEncontrado) {
+      const matId = topicoEncontrado.materiaId || topicoEncontrado.materia?.id;
+      const materiaObj = state.materias.find(m => m.id == matId);
+      const materiaNome = materiaObj ? materiaObj.nome : 'Matéria';
+
+      const selMat = document.getElementById('session-mat');
+      if (selMat) {
+        selMat.value = matId;
+        await loadSessionTopics();
+      }
+
+      // 🔴 DESTACAR A MATÉRIA/ASSUNTO EM REVISÃO NO TOPO 💡
+      const hojeDateEl = document.getElementById('hoje-date');
+      if (hojeDateEl) {
+        hojeDateEl.innerHTML = `<span style="background:rgba(108,123,255,0.15); color:var(--accent); border:1px solid var(--accent); padding:4px 10px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; margin-top:4px;">
+          🔁 REVISANDO AGORA: <b>${materiaNome}</b> → <i>${topicoEncontrado.nome}</i>
+        </span>`;
+      }
+
+      // 🎯 VINCULA A SESSÃO DO ASSUNTO PARA PERMITIR SALVAR ALTERAÇÕES NO CADERNO
+      const sessaoDoTopico = sessoes.reverse().find(s => {
+        const ids = s.topicosConcluidosIds || s.topicosIds || [];
+        return ids.includes(parseInt(topicoEncontrado.id));
+      });
+
+      const notesEl = document.getElementById('session-notes');
+      if (sessaoDoTopico) {
+        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para o PUT da sessão!
+        if (notesEl) {
+          notesEl.value = sessaoDoTopico.anotacoes || "";
+          autoGrowNotes(notesEl);
+        }
+      } else {
+        sessaoEmEdicaoId = null;
+      }
+
+      // 🟢 Botão verde de Concluir Revisão
+      const btnSave = document.getElementById('btn-save-session');
+      if (btnSave) {
+        btnSave.innerHTML = '✅ Concluir Revisão';
+        btnSave.style.background = '#34d399';
+        btnSave.style.color = '#000';
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao carregar caderno para revisão:", e);
+  }
+}
+
+// 🧹 Reseta o caderno, o banner e o botão
+function resetaModoSalvarSessao() {
+  sessaoEmEdicaoId = null;
+  revisaoAtiva = null;
+
+  const btnSave = document.getElementById('btn-save-session');
+  if (btnSave) {
+    btnSave.innerHTML = '💾 Salvar sessão';
+    btnSave.style.background = 'var(--accent)';
+    btnSave.style.color = '#fff';
+  }
+
+  const notesEl = document.getElementById('session-notes');
+  if (notesEl) {
+    notesEl.value = '';
+    autoGrowNotes(notesEl);
+  }
+}
+
+// 💾 Salva a sessão OU Conclui a Revisão (salvando as anotações editadas juntas!)
+async function saveSession() {
+  const notes = document.getElementById('session-notes').value.trim();
+
+  // 🟢 MODO CONCLUIR REVISÃO AGENDADA
+  if (revisaoAtiva) {
+    try {
+      // 1. Se alterou o caderno e a sessão existe no banco, atualiza as notas primeiro!
+      if (sessaoEmEdicaoId) {
+        await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ anotacoes: notes })
+        });
+      }
+
+      // 2. Conclui a revisão e agenda a próxima etapa na Curva de Ebbinghaus!
+      const res = await fetch(`${API_URL}/api/revisoes/${revisaoAtiva}/concluir`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (res.ok) {
+        alert("Revisão concluída e anotação atualizada com sucesso! 🧠✨");
+        resetaModoSalvarSessao();
+        showPage('revisao'); // Volta para a fila de revisões
+      } else {
+        alert("Erro ao concluir revisão no servidor.");
+      }
+    } catch (e) {
+      console.error("Erro ao concluir revisão e salvar caderno:", e);
+      alert("Erro de conexão com o servidor.");
+    }
+    return;
+  }
+
+  // 🔄 MODO EDIÇÃO DE ANOTAÇÃO NORMAL
+  if (sessaoEmEdicaoId) {
+    try {
+      const res = await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anotacoes: notes })
+      });
+
+      if (res.ok) {
+        resetaModoSalvarSessao();
+        await renderHistoricoSessaoHoje();
+      } else {
+        alert("Erro ao atualizar anotação no servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar anotação:", error);
+    }
+    return;
+  }
+
+  // 💾 MODO SALVAR NOVA SESSÃO
+  const matId = document.getElementById('session-mat').value;
+  if (!matId) {
+    alert('Selecione uma matéria primeiro.');
+    return;
+  }
+
+  if (topicosSelecionadosLocalmente.length === 0) {
+    alert("Selecione pelo menos um assunto concluído para salvar a sessão.");
+    return;
+  }
+
+  const sessaoDTO = {
+    materiaId: parseInt(matId),
+    topicosConcluidosIds: topicosSelecionadosLocalmente,
+    anotacoes: notes
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/api/sessoes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...sessaoDTO })
+    });
+
+    if (res.ok) {
+      resetaModoSalvarSessao();
+      topicosSelecionadosLocalmente = [];
+
+      await loadSessionTopics();
+      await renderHistoricoSessaoHoje();
+      renderDashboard();
+    } else {
+      alert("Erro ao salvar sessão no servidor Java.");
+    }
+  } catch (error) {
+    console.error("Erro ao salvar sessão:", error);
+  }
+}
+
+// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
+async function renderHoje() {
+  const sel = document.getElementById('session-mat');
+  if (!sel) return;
+
+  if (!revisaoAtiva) {
+    const hojeDateEl = document.getElementById('hoje-date');
+    if (hojeDateEl) {
+      const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
+      hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/materias`);
+    state.materias = await res.json();
+
+    const valorAtual = sel.value;
+
+    if (!state.materias || !state.materias.length) {
+      sel.innerHTML = '<option value="">Nenhuma matéria cadastrada</option>';
+    } else {
+      sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
+        state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
+    }
+
+    if (valorAtual) sel.value = valorAtual;
+
+    if (sel.value) {
+      await loadSessionTopics();
+    } else {
+      document.getElementById('session-topics-list').innerHTML =
+        '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    }
+
+    await renderHistoricoSessaoPorData(dataAtivaSessao);
+
+  } catch (error) {
+    console.error("Erro na aba hoje:", error);
+  }
+}
+
+async function loadSessionTopics() {
+  const matId = document.getElementById('session-mat').value;
+  const el = document.getElementById('session-topics-list');
+  if (!el) return;
+
+  if (!matId) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
+    const topicos = await res.json();
+
+    if (!topicos || !topicos.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📂</div>Nenhum assunto cadastrado nesta matéria</div>';
+      return;
+    }
+
+    el.innerHTML = topicos.map(t => {
+      const idNum = parseInt(t.id);
+      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
+      const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
+
+      return `<div class="topic-row ${jaConcluido ? 'concluido-banco' : ''}" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="tratarCliqueTopico('${t.id}', ${jaConcluido})">
+        <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" id="check-${t.id}"></div>
+        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">
+          ${t.nome}
+        </div>
+        ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);margin-left:auto;">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
+      </div>`;
+    }).join('');
+
+  } catch (error) {
+    console.error("Erro ao carregar tópicos:", error);
+  }
+}
+
+function autoGrowNotes(element) {
+  if (!element) return;
+  element.style.height = 'auto';
+  element.style.height = (element.scrollHeight) + 'px';
+}
+
+async function irParaCadernoMateria(materiaId, topicoId) {
+  dataAtivaSessao = today();
+  showPage('hoje');
+
+  const selMat = document.getElementById('session-mat');
+  if (selMat) {
+    selMat.value = materiaId;
+  }
+
+  await loadSessionTopics();
+  await tratarCliqueTopico(topicoId, true);
+}
+
+async function tratarCliqueTopico(topicId, jaConcluido) {
+  if (jaConcluido) {
+    try {
+      const resSessoes = await fetch(`${API_URL}/api/sessoes`);
+      if (!resSessoes.ok) throw new Error();
+
+      const sessoes = await resSessoes.json();
+      const topicIdNum = parseInt(topicId);
+
+      const sessaoDoTopico = sessoes.reverse().find(s => {
+        const ids = s.topicosConcluidosIds || s.topicosIds || [];
+        return ids.includes(topicIdNum);
+      });
+
+      const notesEl = document.getElementById('session-notes');
+      const btnSave = document.getElementById('btn-save-session');
+
+      if (sessaoDoTopico) {
+        sessaoEmEdicaoId = sessaoDoTopico.id;
+
+        if (notesEl) {
+          notesEl.value = sessaoDoTopico.anotacoes || "";
+          autoGrowNotes(notesEl);
+        }
+
+        if (btnSave) {
+          btnSave.innerHTML = '🔄 Atualizar anotação';
+          btnSave.style.background = 'var(--accent)';
+          btnSave.style.color = '#fff';
+        }
+
+        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
+      }
+
+    } catch (e) {
+      console.error("Erro ao carregar resumo da sessão:", e);
+    }
+    return;
+  }
+
+  dataAtivaSessao = today();
+
+  const hojeDateEl = document.getElementById('hoje-date');
+  if (hojeDateEl) {
+    const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
+    hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  await renderHistoricoSessaoPorData(dataAtivaSessao);
+
+  resetaModoSalvarSessao();
+  toggleTopicLocal(topicId);
+}
+
+function toggleTopicLocal(topicId) {
+  const checkEl = document.getElementById(`check-${topicId}`);
+  const nameEl = document.getElementById(`name-${topicId}`);
+  const idNum = parseInt(topicId);
+
+  if (!checkEl || !nameEl) return;
+
+  if (checkEl.classList.contains('checked')) {
+    checkEl.classList.remove('checked');
+    nameEl.classList.remove('done');
+    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
+  } else {
+    checkEl.classList.add('checked');
+    nameEl.classList.add('done');
+    topicosSelecionadosLocalmente.push(idNum);
+  }
+}
+
 async function renderHistoricoSessaoPorData(dataFiltro) {
   const hist = document.getElementById('session-history');
   if (!hist) return;
@@ -199,15 +612,14 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
 
     if (!sessoesDaData.length) {
       hist.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
-      
-      resetaModoSalvarSessao();
+      if (!revisaoAtiva) resetaModoSalvarSessao();
       return;
     }
 
     const sessoesInvertidas = [...sessoesDaData].reverse();
 
     const primeiraSessao = sessoesInvertidas[0];
-    if (primeiraSessao) {
+    if (primeiraSessao && !revisaoAtiva) {
       const selMat = document.getElementById('session-mat');
       if (selMat && primeiraSessao.materiaId) {
         selMat.value = primeiraSessao.materiaId;
@@ -224,7 +636,7 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
         btnSave.innerHTML = '🔄 Atualizar anotação';
-        btnSave.classList.add('btn-update');
+        btnSave.style.background = 'var(--accent)';
       }
     }
 
@@ -252,41 +664,11 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
 
   } catch (e) {
     console.error("Erro ao renderizar histórico por data:", e);
-    hist.innerHTML = '<div class="empty"><div class="empty-icon">🗂️</div>Erro ao carregar histórico</div>';
   }
 }
 
-// 📖 Auxiliar para carregar uma sessão do histórico diretamente no caderno
-async function carregarSessaoDiretaNoCaderno(sessaoId) {
-  try {
-    const res = await fetch(`${API_URL}/api/sessoes`);
-    if (!res.ok) return;
-    const sessoes = await res.json();
-    const sessao = sessoes.find(s => s.id == sessaoId);
-
-    if (sessao) {
-      const selMat = document.getElementById('session-mat');
-      if (selMat && sessao.materiaId) {
-        selMat.value = sessao.materiaId;
-        await loadSessionTopics();
-      }
-
-      const notesEl = document.getElementById('session-notes');
-      if (notesEl) {
-        notesEl.value = sessao.anotacoes || "";
-        autoGrowNotes(notesEl);
-      }
-
-      sessaoEmEdicaoId = sessao.id;
-      const btnSave = document.getElementById('btn-save-session');
-      if (btnSave) {
-        btnSave.innerHTML = '🔄 Atualizar anotação';
-        btnSave.classList.add('btn-update');
-      }
-    }
-  } catch (e) {
-    console.error("Erro ao carregar sessão no caderno:", e);
-  }
+async function renderHistoricoSessaoHoje() {
+  await renderHistoricoSessaoPorData(dataAtivaSessao);
 }
 
 // ─── MATÉRIAS & CONTROLE DE PAINÉIS ──────────────────────────────────────────
@@ -463,7 +845,6 @@ async function saveMateria() {
 
   } catch (error) {
     console.error("Erro ao salvar matéria:", error);
-    alert("Erro de comunicação com o servidor.");
   }
 }
 
@@ -529,328 +910,6 @@ async function deleteTopico(idTopico) {
     }
   } catch (error) {
     console.error("Erro ao excluir tópico:", error);
-  }
-}
-
-// ─── REVISÃO ESPAÇADA & FILA ─────────────────────────────────────────────────
-async function renderRevisao() {
-  try {
-    const [resHoje, resStats] = await Promise.all([
-      fetch(`${API_URL}/api/revisoes/hoje`),
-      fetch(`${API_URL}/api/revisoes/estatisticas`)
-    ]);
-
-    const stats = await resStats.json();
-
-    const cardHoje = document.getElementById('rev-today');
-    const cardSemana = document.getElementById('rev-week');
-    const cardFeitas = document.getElementById('rev-done');
-
-    if (cardHoje) cardHoje.textContent = stats.hoje ?? 0;
-    if (cardSemana) cardSemana.textContent = stats.proximos7Dias ?? 0;
-    if (cardFeitas) cardFeitas.textContent = stats.feitas ?? 0;
-
-  } catch (error) {
-    console.error("Erro ao listar revisões:", error);
-  }
-}
-
-// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
-async function renderHoje() {
-  const sel = document.getElementById('session-mat');
-  if (!sel) return;
-
-  const hojeDateEl = document.getElementById('hoje-date');
-  if (hojeDateEl) {
-    const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
-    hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  }
-
-  try {
-    const res = await fetch(`${API_URL}/api/materias`);
-    state.materias = await res.json();
-
-    const valorAtual = sel.value;
-
-    if (!state.materias || !state.materias.length) {
-      sel.innerHTML = '<option value="">Nenhuma matéria cadastrada</option>';
-    } else {
-      sel.innerHTML = '<option value="">Selecionar matéria...</option>' +
-        state.materias.map(m => `<option value="${m.id}">${m.nome}</option>`).join('');
-    }
-
-    if (valorAtual) sel.value = valorAtual;
-
-    if (sel.value) {
-      await loadSessionTopics();
-    } else {
-      document.getElementById('session-topics-list').innerHTML =
-        '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
-    }
-
-    await renderHistoricoSessaoPorData(dataAtivaSessao);
-
-  } catch (error) {
-    console.error("Erro na aba hoje:", error);
-  }
-}
-
-// 📖 Carrega e exibe os assuntos da matéria selecionada
-async function loadSessionTopics() {
-  const matId = document.getElementById('session-mat').value;
-  const el = document.getElementById('session-topics-list');
-  if (!el) return;
-
-  if (!matId) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
-    const topicos = await res.json();
-
-    if (!topicos || !topicos.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📂</div>Nenhum assunto cadastrado nesta matéria</div>';
-      return;
-    }
-
-    el.innerHTML = topicos.map(t => {
-      const idNum = parseInt(t.id);
-      const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
-      const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
-
-      return `<div class="topic-row ${jaConcluido ? 'concluido-banco' : ''}" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="tratarCliqueTopico('${t.id}', ${jaConcluido})">
-        <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" id="check-${t.id}"></div>
-        <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">
-          ${t.nome}
-        </div>
-        ${jaConcluido && (t.dataConclusao || t.doneDate) ? `<span style="font-size:11px;color:var(--muted);margin-left:auto;">${dateStr(t.dataConclusao || t.doneDate)}</span>` : ''}
-      </div>`;
-    }).join('');
-
-  } catch (error) {
-    console.error("Erro ao carregar tópicos:", error);
-  }
-}
-
-// 📏 Ajusta dinamicamente a altura do campo de anotações
-function autoGrowNotes(element) {
-  if (!element) return;
-  element.style.height = 'auto';
-  element.style.height = (element.scrollHeight) + 'px';
-}
-
-// 🔗 Navega da tela Matérias direto para o Caderno na aba Hoje
-async function irParaCadernoMateria(materiaId, topicoId) {
-  dataAtivaSessao = today();
-  showPage('hoje');
-
-  const selMat = document.getElementById('session-mat');
-  if (selMat) {
-    selMat.value = materiaId;
-  }
-
-  await loadSessionTopics();
-  await tratarCliqueTopico(topicoId, true);
-}
-
-// 📌 Decidir o que fazer ao clicar no assunto (Concluído X Não concluído)
-async function tratarCliqueTopico(topicId, jaConcluido) {
-  if (jaConcluido) {
-    try {
-      const resSessoes = await fetch(`${API_URL}/api/sessoes`);
-      if (!resSessoes.ok) throw new Error();
-
-      const sessoes = await resSessoes.json();
-      const topicIdNum = parseInt(topicId);
-
-      const sessaoDoTopico = sessoes.reverse().find(s => {
-        const ids = s.topicosConcluidosIds || s.topicosIds || [];
-        return ids.includes(topicIdNum);
-      });
-
-      const notesEl = document.getElementById('session-notes');
-      const btnSave = document.getElementById('btn-save-session');
-
-      if (sessaoDoTopico) {
-        sessaoEmEdicaoId = sessaoDoTopico.id;
-
-        if (notesEl) {
-          notesEl.value = sessaoDoTopico.anotacoes || "";
-          autoGrowNotes(notesEl);
-        }
-
-        if (btnSave) {
-          btnSave.innerHTML = '🔄 Atualizar anotação';
-          btnSave.classList.add('btn-update');
-        }
-
-        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
-      }
-
-    } catch (e) {
-      console.error("Erro ao carregar resumo da sessão:", e);
-    }
-    return;
-  }
-
-  // 🟢 Quando clica em um assunto novo (não concluído):
-  // 1. Muda a data ativa para HOJE
-  dataAtivaSessao = today();
-
-  // 2. Atualiza o título da data no cabeçalho
-  const hojeDateEl = document.getElementById('hoje-date');
-  if (hojeDateEl) {
-    const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
-    hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  }
-
-  // 3. Atualiza o histórico para a data de HOJE
-  await renderHistoricoSessaoPorData(dataAtivaSessao);
-
-  // 4. Limpa o caderno e seleciona o assunto
-  resetaModoSalvarSessao();
-  toggleTopicLocal(topicId);
-}
-
-// 📌 Alterna a seleção local do tópico não concluído
-function toggleTopicLocal(topicId) {
-  const checkEl = document.getElementById(`check-${topicId}`);
-  const nameEl = document.getElementById(`name-${topicId}`);
-  const idNum = parseInt(topicId);
-
-  if (!checkEl || !nameEl) return;
-
-  if (checkEl.classList.contains('checked')) {
-    checkEl.classList.remove('checked');
-    nameEl.classList.remove('done');
-    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
-  } else {
-    checkEl.classList.add('checked');
-    nameEl.classList.add('done');
-    topicosSelecionadosLocalmente.push(idNum);
-  }
-}
-
-// 🧹 Reseta o caderno e o botão para o modo de Salvar Sessão Nova
-function resetaModoSalvarSessao() {
-  sessaoEmEdicaoId = null;
-
-  const btnSave = document.getElementById('btn-save-session');
-  if (btnSave) {
-    btnSave.innerHTML = '💾 Salvar sessão';
-    btnSave.classList.remove('btn-update');
-  }
-
-  const notesEl = document.getElementById('session-notes');
-  if (notesEl) {
-    notesEl.value = '';
-    autoGrowNotes(notesEl);
-  }
-}
-
-// 🗂️ Exibe o Card da Sessão Clicada no Histórico
-async function exibirSessaoEspecificaNoHistorico(sessao) {
-  const hist = document.getElementById('session-history');
-  if (!hist) return;
-
-  try {
-    const resTopicos = await fetch(`${API_URL}/api/topicos`);
-    const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
-
-    const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(dataAtivaSessao);
-    const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
-    const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
-
-    const idsTopicos = sessao.topicosConcluidosIds || sessao.topicosIds || [];
-    const nomesAssuntos = idsTopicos.map(id => {
-      const topico = todosTopicos.find(t => t.id == id);
-      return topico ? topico.nome : null;
-    }).filter(Boolean);
-
-    const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
-
-    hist.innerHTML = `
-      <div class="historico-card-destaque">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
-        <div style="flex:1;">
-          <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
-        </div>
-      </div>
-    `;
-  } catch (e) {
-    console.error("Erro ao renderizar card da sessão:", e);
-  }
-}
-
-// 🗂️ Renderiza o histórico respeitando a data selecionada
-async function renderHistoricoSessaoHoje() {
-  await renderHistoricoSessaoPorData(dataAtivaSessao);
-}
-
-// 💾 Salva uma nova sessão OU 🔄 Atualiza apenas o caderno da sessão existente
-async function saveSession() {
-  const notes = document.getElementById('session-notes').value.trim();
-
-  if (sessaoEmEdicaoId) {
-    try {
-      const res = await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ anotacoes: notes })
-      });
-
-      if (res.ok) {
-        resetaModoSalvarSessao();
-        await renderHistoricoSessaoHoje();
-      } else {
-        alert("Erro ao atualizar anotação no servidor.");
-      }
-    } catch (error) {
-      console.error("Erro ao atualizar anotação:", error);
-    }
-    return;
-  }
-
-  const matId = document.getElementById('session-mat').value;
-  if (!matId) {
-    alert('Selecione uma matéria primeiro.');
-    return;
-  }
-
-  if (topicosSelecionadosLocalmente.length === 0) {
-    alert("Selecione pelo menos um assunto concluído para salvar a sessão.");
-    return;
-  }
-
-  const sessaoDTO = {
-    materiaId: parseInt(matId),
-    topicosConcluidosIds: topicosSelecionadosLocalmente,
-    anotacoes: notes
-  };
-
-  try {
-    const res = await fetch(`${API_URL}/api/sessoes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...sessaoDTO })
-    });
-
-    if (res.ok) {
-      resetaModoSalvarSessao();
-      topicosSelecionadosLocalmente = [];
-
-      await loadSessionTopics();
-      await renderHistoricoSessaoHoje();
-      renderDashboard();
-    } else {
-      alert("Erro ao salvar sessão no servidor Java.");
-    }
-  } catch (error) {
-    console.error("Erro ao salvar sessão:", error);
-    alert("Erro de conexão com o servidor.");
   }
 }
 
