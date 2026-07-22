@@ -175,7 +175,7 @@ async function renderDashboard() {
 
 // 📅 Navega do Calendário direto para a aba Hoje fixando a data selecionada
 async function irParaDataEspecifica(dataSelecionada) {
-  dataAtivaSessao = dataSelecionada; // 🎯 Trava a data clicada
+  dataAtivaSessao = dataSelecionada;
   showPage('hoje');
 }
 
@@ -195,24 +195,17 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
     const sessoesDoBanco = await resSessoes.json();
     let todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
 
-    // 🎯 Filtra estritamente pela data do calendário
     const sessoesDaData = sessoesDoBanco.filter(s => s.dataSessao === dataFiltro);
 
     if (!sessoesDaData.length) {
       hist.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
-
+      
       resetaModoSalvarSessao();
-      const notesEl = document.getElementById('session-notes');
-      if (notesEl) {
-        notesEl.value = '';
-        autoGrowNotes(notesEl);
-      }
       return;
     }
 
     const sessoesInvertidas = [...sessoesDaData].reverse();
 
-    // 📖 Carrega a primeira sessão do dia selecionado no caderno
     const primeiraSessao = sessoesInvertidas[0];
     if (primeiraSessao) {
       const selMat = document.getElementById('session-mat');
@@ -567,7 +560,6 @@ async function renderHoje() {
   const sel = document.getElementById('session-mat');
   if (!sel) return;
 
-  // 1. Atualiza o título da tela com a dataAtivaSessao travada
   const hojeDateEl = document.getElementById('hoje-date');
   if (hojeDateEl) {
     const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
@@ -596,7 +588,6 @@ async function renderHoje() {
         '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
     }
 
-    // 2. Filtra o histórico exclusivamente para a dataAtivaSessao
     await renderHistoricoSessaoPorData(dataAtivaSessao);
 
   } catch (error) {
@@ -704,6 +695,21 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
     return;
   }
 
+  // 🟢 Quando clica em um assunto novo (não concluído):
+  // 1. Muda a data ativa para HOJE
+  dataAtivaSessao = today();
+
+  // 2. Atualiza o título da data no cabeçalho
+  const hojeDateEl = document.getElementById('hoje-date');
+  if (hojeDateEl) {
+    const dataObj = new Date(dataAtivaSessao + 'T12:00:00');
+    hojeDateEl.textContent = dataObj.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  // 3. Atualiza o histórico para a data de HOJE
+  await renderHistoricoSessaoPorData(dataAtivaSessao);
+
+  // 4. Limpa o caderno e seleciona o assunto
   resetaModoSalvarSessao();
   toggleTopicLocal(topicId);
 }
@@ -727,13 +733,20 @@ function toggleTopicLocal(topicId) {
   }
 }
 
-// 🧹 Reseta o botão para o modo de Salvar Sessão Nova
+// 🧹 Reseta o caderno e o botão para o modo de Salvar Sessão Nova
 function resetaModoSalvarSessao() {
   sessaoEmEdicaoId = null;
+
   const btnSave = document.getElementById('btn-save-session');
   if (btnSave) {
     btnSave.innerHTML = '💾 Salvar sessão';
     btnSave.classList.remove('btn-update');
+  }
+
+  const notesEl = document.getElementById('session-notes');
+  if (notesEl) {
+    notesEl.value = '';
+    autoGrowNotes(notesEl);
   }
 }
 
@@ -791,8 +804,6 @@ async function saveSession() {
 
       if (res.ok) {
         resetaModoSalvarSessao();
-        document.getElementById('session-notes').value = '';
-        autoGrowNotes(document.getElementById('session-notes'));
         await renderHistoricoSessaoHoje();
       } else {
         alert("Erro ao atualizar anotação no servidor.");
@@ -828,10 +839,7 @@ async function saveSession() {
     });
 
     if (res.ok) {
-      document.getElementById('session-notes').value = '';
-      const notesEl = document.getElementById('session-notes');
-      if (notesEl) autoGrowNotes(notesEl);
-
+      resetaModoSalvarSessao();
       topicosSelecionadosLocalmente = [];
 
       await loadSessionTopics();
