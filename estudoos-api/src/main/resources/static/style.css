@@ -857,3 +857,20 @@ select,
   background: transparent !important;
   padding: 2rem 1rem !important;
 }
+/* 🔄 Estado do botão quando estiver em modo "Atualizar anotação" */
+.btn-update {
+  background-color: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+/* 🗂️ Card em destaque no histórico ao selecionar um assunto */
+.historico-card-destaque {
+  padding: .85rem;
+  background: var(--surface2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  margin-bottom: .4rem;
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+}

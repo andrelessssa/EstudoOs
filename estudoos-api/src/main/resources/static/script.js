@@ -9,6 +9,7 @@ let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = [];
 let revisaoAtiva = null;
 let modoEdicao = false;
+let sessaoEmEdicaoId = null;
 
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
@@ -467,7 +468,7 @@ async function renderHoje() {
   }
 }
 
-// 📖 Carrega e exibe os assuntos da matéria selecionada (Nome limpo sem tags extras)
+// 📖 Carrega e exibe os assuntos da matéria selecionada
 async function loadSessionTopics() {
   const matId = document.getElementById('session-mat').value;
   const el = document.getElementById('session-topics-list');
@@ -513,55 +514,79 @@ function autoGrowNotes(element) {
   element.style.height = (element.scrollHeight) + 'px';
 }
 
-// 📌 Decide o que fazer ao clicar no assunto (Marcar local X Abrir Resumo/Caderno)
 // 📌 Decidir o que fazer ao clicar no assunto (Concluído X Não concluído)
 async function tratarCliqueTopico(topicId, jaConcluido) {
   if (jaConcluido) {
     try {
-      // 1. Busca todas as sessões para encontrar a que contém esse tópico
       const resSessoes = await fetch(`${API_URL}/api/sessoes`);
       if (!resSessoes.ok) throw new Error();
 
       const sessoes = await resSessoes.json();
       const topicIdNum = parseInt(topicId);
 
-      // Encontra a sessão mais recente que contém este assunto
       const sessaoDoTopico = sessoes.reverse().find(s => {
         const ids = s.topicosConcluidosIds || s.topicosIds || [];
         return ids.includes(topicIdNum);
       });
 
       const notesEl = document.getElementById('session-notes');
+      const btnSave = document.getElementById('btn-save-session');
 
       if (sessaoDoTopico) {
-        // 📖 2. Preenche o Caderno com a anotação gravada na sessão
+        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para o modo edição
+
         if (notesEl) {
-          notesEl.value = sessaoDoTopico.anotacoes || "Nenhuma anotação registrada para esta sessão.";
+          notesEl.value = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
         }
 
-        // 🗂️ 3. Exibe o card dessa sessão específica no Histórico
-        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
-
-      } else {
-        // Fallback: se não achar a sessão, busca no próprio tópico
-        const resTopico = await fetch(`${API_URL}/api/topicos/${topicId}`);
-        if (resTopico.ok) {
-          const topico = await resTopico.json();
-          if (notesEl) {
-            notesEl.value = topico.anotacoes || "Nenhuma anotação cadastrada para este assunto.";
-            autoGrowNotes(notesEl);
-          }
+        // 🔄 Muda o botão para modo Atualizar usando classe CSS
+        if (btnSave) {
+          btnSave.innerHTML = '🔄 Atualizar anotação';
+          btnSave.classList.add('btn-update');
         }
+
+        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
       }
 
     } catch (e) {
       console.error("Erro ao carregar resumo da sessão:", e);
     }
-    return; // Não altera o checkbox de seleção local
+    return;
   }
 
+  // Se for assunto novo, reseta o modo edição e volta o botão para 'Salvar'
+  resetaModoSalvarSessao();
   toggleTopicLocal(topicId);
+}
+
+// 📌 Alterna a seleção local do tópico não concluído
+function toggleTopicLocal(topicId) {
+  const checkEl = document.getElementById(`check-${topicId}`);
+  const nameEl = document.getElementById(`name-${topicId}`);
+  const idNum = parseInt(topicId);
+
+  if (!checkEl || !nameEl) return;
+
+  if (checkEl.classList.contains('checked')) {
+    checkEl.classList.remove('checked');
+    nameEl.classList.remove('done');
+    topicosSelecionadosLocalmente = topicosSelecionadosLocalmente.filter(id => id !== idNum);
+  } else {
+    checkEl.classList.add('checked');
+    nameEl.classList.add('done');
+    topicosSelecionadosLocalmente.push(idNum);
+  }
+}
+
+// 🧹 Reseta o botão para o modo de Salvar Sessão Nova
+function resetaModoSalvarSessao() {
+  sessaoEmEdicaoId = null;
+  const btnSave = document.getElementById('btn-save-session');
+  if (btnSave) {
+    btnSave.innerHTML = '💾 Salvar sessão';
+    btnSave.classList.remove('btn-update');
+  }
 }
 
 // 🗂️ Exibe o Card da Sessão Clicada no Histórico de Sessões
@@ -586,7 +611,7 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
     const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
 
     hist.innerHTML = `
-      <div style="padding:.85rem; background:var(--surface2); border:1px solid var(--accent); border-radius:var(--radius); margin-bottom:.4rem; display:flex; gap:.75rem; align-items:flex-start;">
+      <div class="historico-card-destaque">
         <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
         <div style="flex:1;">
           <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
@@ -658,15 +683,39 @@ async function renderHistoricoSessaoHoje() {
   }
 }
 
-// 💾 Salva a sessão de estudo
+// 💾 Salva uma nova sessão OU 🔄 Atualiza apenas o caderno da sessão existente
 async function saveSession() {
+  const notes = document.getElementById('session-notes').value.trim();
+
+  // 🔄 MODO EDIÇÃO: Atualiza apenas as anotações da sessão mantendo as datas
+  if (sessaoEmEdicaoId) {
+    try {
+      const res = await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anotacoes: notes })
+      });
+
+      if (res.ok) {
+        resetaModoSalvarSessao();
+        document.getElementById('session-notes').value = '';
+        autoGrowNotes(document.getElementById('session-notes'));
+        renderHistoricoSessaoHoje();
+      } else {
+        alert("Erro ao atualizar anotação no servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar anotação:", error);
+    }
+    return;
+  }
+
+  // 💾 MODO CRIAÇÃO: Cria nova sessão normalmente
   const matId = document.getElementById('session-mat').value;
   if (!matId) {
     alert('Selecione uma matéria primeiro.');
     return;
   }
-
-  const notes = document.getElementById('session-notes').value.trim();
 
   if (topicosSelecionadosLocalmente.length === 0) {
     alert("Selecione pelo menos um assunto concluído para salvar a sessão.");
@@ -683,13 +732,13 @@ async function saveSession() {
     const res = await fetch(`${API_URL}/api/sessoes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sessaoDTO)
+      body: JSON.stringify({ ...sessaoDTO })
     });
 
     if (res.ok) {
       document.getElementById('session-notes').value = '';
       const notesEl = document.getElementById('session-notes');
-      if (notesEl) autoGrowNotes(notesEl); // Reseta a altura do caderno
+      if (notesEl) autoGrowNotes(notesEl);
 
       topicosSelecionadosLocalmente = [];
 

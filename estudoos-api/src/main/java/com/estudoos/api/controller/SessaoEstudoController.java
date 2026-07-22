@@ -55,16 +55,20 @@ public class SessaoEstudoController {
         }
         return ResponseEntity.ok(sessao);
     }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> excluirSessao(@PathVariable Long id) {
         // 🟢 Agora chamando o service correto onde o método foi colado!
         sessaoEstudoService.excluirSessaoEVoltarTopicos(id);
         return ResponseEntity.noContent().build();
     }
-    @PutMapping("/{id}/anotacoes")
-    public ResponseEntity<Void> atualizarAnotacoes(@PathVariable Long id, @RequestBody String novasAnotacoes) {
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> atualizarAnotacoes(@PathVariable Long id,
+            @RequestBody java.util.Map<String, String> payload) {
+        String novasAnotacoes = payload.get("anotacoes");
         sessaoEstudoService.atualizarAnotacoesSessao(id, novasAnotacoes);
         return ResponseEntity.ok().build();
     }
-    
+
 }
