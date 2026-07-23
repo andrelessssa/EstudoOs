@@ -20,21 +20,25 @@ public class SessaoEstudo {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate dataSessao = LocalDate.now(); // Grava o dia de hoje automaticamente
+    private LocalDate dataSessao = LocalDate.now();
 
     @Column(columnDefinition = "TEXT")
-    private String anotacoes; // Guarda o resumo/anotações que você fez ao lado
+    private String anotacoes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "materia_id", nullable = false)
-    private Materia materia; // Sabe qual matéria foi estudada na sessão
+    private Materia materia;
 
-    // 🔗 CORREÇÃO DE OURO: Mapeia o relacionamento de muitos-para-muitos com a tabela de tópicos!
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "sessao_topico",
         joinColumns = @JoinColumn(name = "sessao_id"),
         inverseJoinColumns = @JoinColumn(name = "topico_id")
     )
-    private List<Topico> topicos = new ArrayList<>(); // Guarda a lista de assuntos estudados na sessão
+    private List<Topico> topicos = new ArrayList<>();
+
+    // 🟢 Novo vínculo com o Usuario
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 }

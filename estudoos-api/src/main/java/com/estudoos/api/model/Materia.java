@@ -21,4 +21,9 @@ public class Materia {
 
     @Column(nullable = false, length = 7)
     private String cor;
+
+    // 🟢 Novo vinculo com o Usuario
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 }

@@ -22,14 +22,12 @@ public class RevisaoService {
         this.revisaoRepository = revisaoRepository;
     }
 
-    public List<RevisaoDTO> listarRevisoesDoDia() {
+    // 🟢 1. Lista apenas as revisões de hoje/atrasadas do USUÁRIO logado
+    public List<RevisaoDTO> listarRevisoesDoDiaPorUsuario(Long usuarioId) {
         LocalDate hoje = LocalDate.now();
-        List<Revisao> revisoesPendentes = revisaoRepository.findAll();
+        List<Revisao> revisoesPendentes = revisaoRepository.buscarRevisoesAtrasadasEHojePorUsuario(usuarioId, hoje);
 
         List<Revisao> filtradas = revisoesPendentes.stream()
-                .filter(r -> !r.isFeita())
-                .filter(r -> r.getDataAgendada() != null
-                        && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
                 .collect(Collectors.toMap(
                         revisao -> revisao.getTopico().getId(),
                         revisao -> revisao,
@@ -49,18 +47,17 @@ public class RevisaoService {
                 .collect(Collectors.toList());
     }
 
-    // ⚡ Conclui a revisão e gera o agendamento preenchendo todos os campos
-    // obrigatórios! 🧠🛡️
+    // 🟢 2. Conclui a revisão e gera o próximo ciclo vinculando o USUÁRIO
     @Transactional
-    public void concluirRevisao(Long id) {
-        Revisao revisaoAtual = revisaoRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Revisão não encontrada com o ID: " + id));
+    public void concluirRevisao(Long id, Long usuarioId) {
+        Revisao revisaoAtual = revisaoRepository.findByIdAndUsuarioId(id, usuarioId)
+                .orElseThrow(() -> new IllegalArgumentException("Revisão não encontrada ou acesso negado para ID: " + id));
 
         // 1. Marca a revisão atual como feita ✅
         revisaoAtual.setFeita(true);
         revisaoRepository.save(revisaoAtual);
 
-        // 2. Determina qual o intervalo e a etapa atual (proteção contra nulos) 📊
+        // 2. Determina intervalo e próxima etapa
         Integer intervaloAtual = revisaoAtual.getIntervaloDias();
         if (intervaloAtual == null) {
             intervaloAtual = 3;
@@ -69,8 +66,6 @@ public class RevisaoService {
         int proximoIntervalo = 0;
         int proximaEtapa = 1;
 
-        // 🔄 Ciclo de Ebbinghaus: 3 dias (etapa 1) ➔ 7 dias (etapa 2) ➔ 15 dias (etapa
-        // 3) ➔ 30 dias (etapa 4)
         if (intervaloAtual <= 3) {
             proximoIntervalo = 7;
             proximaEtapa = 2;
@@ -82,39 +77,29 @@ public class RevisaoService {
             proximaEtapa = 4;
         }
 
-        // 3. Se houver próxima etapa, grava com TODOS os campos não nulos! 📅
+        // 3. Salva a próxima revisão mantendo o vinculo com o Usuario 📅🔒
         if (proximoIntervalo > 0 && revisaoAtual.getTopico() != null) {
             Revisao proximaRevisao = new Revisao();
             proximaRevisao.setTopico(revisaoAtual.getTopico());
             proximaRevisao.setDataAgendada(LocalDate.now().plusDays(proximoIntervalo));
-            proximaRevisao.setIntervaloDias(proximoIntervalo); // 🟢 Preenchido! Evita erro 500 no Postgres
-            proximaRevisao.setEtapa(proximaEtapa); // 🟢 Preenchido!
+            proximaRevisao.setIntervaloDias(proximoIntervalo);
+            proximaRevisao.setEtapa(proximaEtapa);
             proximaRevisao.setFeita(false);
+            proximaRevisao.setUsuario(revisaoAtual.getUsuario()); // 🔒 Garante que a próxima etapa pertence ao mesmo usuário!
 
             revisaoRepository.save(proximaRevisao);
         }
     }
 
-    public Map<String, Long> obterEstatisticas() {
+    // 🟢 3. Estatísticas exclusivas do USUÁRIO logado
+    public Map<String, Long> obterEstatisticasPorUsuario(Long usuarioId) {
         Map<String, Long> stats = new HashMap<>();
         LocalDate hoje = LocalDate.now();
         LocalDate proximaSemana = hoje.plusDays(7);
 
-        List<Revisao> todas = revisaoRepository.findAll();
-
-        long hojeCount = todas.stream()
-                .filter(r -> !r.isFeita() && r.getDataAgendada() != null
-                        && (r.getDataAgendada().isBefore(hoje) || r.getDataAgendada().isEqual(hoje)))
-                .count();
-
-        long semanaCount = todas.stream()
-                .filter(r -> !r.isFeita() && r.getDataAgendada() != null && !r.getDataAgendada().isBefore(hoje)
-                        && !r.getDataAgendada().isAfter(proximaSemana))
-                .count();
-
-        long feitasCount = todas.stream()
-                .filter(Revisao::isFeita)
-                .count();
+        long hojeCount = revisaoRepository.contarRevisoesAtrasadasEHojePorUsuario(usuarioId, hoje);
+        long semanaCount = revisaoRepository.contarRevisoesNoIntervaloPorUsuario(usuarioId, hoje, proximaSemana);
+        long feitasCount = revisaoRepository.countByUsuarioIdAndFeitaTrue(usuarioId);
 
         stats.put("hoje", hojeCount);
         stats.put("proximos7Dias", semanaCount);

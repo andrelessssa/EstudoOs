@@ -1,6 +1,7 @@
 package com.estudoos.api.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.dtos.SessaoDTO;
+import com.estudoos.api.model.Usuario;
 import com.estudoos.api.service.SessaoEstudoService;
 
 @RestController
@@ -28,47 +30,48 @@ public class SessaoEstudoController {
     }
 
     @PostMapping
-    public ResponseEntity<String> salvarSessaoDeHoje(@RequestBody SessaoDTO dto) {
-        sessaoEstudoService.salvarSessaoDeHoje(dto);
-        return ResponseEntity.ok("Sessão de estudos salva e revisões agendadas com sucesso! 🧠🎯");
+    public ResponseEntity<Void> salvarSessao(@RequestBody SessaoDTO dto) {
+        Usuario usuarioTemp = new Usuario();
+        usuarioTemp.setId(1L);
+
+        sessaoEstudoService.salvarSessaoDeHoje(dto, usuarioTemp);
+        return ResponseEntity.ok().build();
     }
 
-    // 🔗 ADICIONADO: Expõe o endpoint GET para o histórico vir direto do Postgres!
     @GetMapping
-    public ResponseEntity<List<SessaoDTO>> listarSessoes() {
-        return ResponseEntity.ok(sessaoEstudoService.listarTodas());
+    public ResponseEntity<List<SessaoDTO>> listarTodas() {
+        Long usuarioIdTemp = 1L;
+        return ResponseEntity.ok(sessaoEstudoService.listarPorUsuario(usuarioIdTemp));
     }
 
     @GetMapping("/calendario/estudados")
-    public ResponseEntity<List<String>> getDiasEstudados() {
-        // 🟢 Agora a controller apenas delega a responsabilidade para o Service!
-        List<String> dias = sessaoEstudoService.obterDiasEstudados();
-        return ResponseEntity.ok(dias);
+    public ResponseEntity<List<String>> obterDiasEstudados() {
+        Long usuarioIdTemp = 1L;
+        return ResponseEntity.ok(sessaoEstudoService.obterDiasEstudadosPorUsuario(usuarioIdTemp));
     }
 
-    // 🟢 Novo endpoint que retorna a sessão completa para a tela de revisão
-    @GetMapping("/revisar/{materiaId}")
-    public ResponseEntity<SessaoDTO> obterSessaoParaRevisao(@PathVariable Long materiaId) {
-        SessaoDTO sessao = sessaoEstudoService.obterUltimaSessaoDaMateria(materiaId);
+    @GetMapping("/materia/{materiaId}/ultima")
+    public ResponseEntity<SessaoDTO> obterUltimaSessaoDaMateria(@PathVariable Long materiaId) {
+        Long usuarioIdTemp = 1L;
+        SessaoDTO sessao = sessaoEstudoService.obterUltimaSessaoDaMateriaEUsuario(materiaId, usuarioIdTemp);
         if (sessao == null) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(sessao);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> excluirSessao(@PathVariable Long id) {
-        // 🟢 Agora chamando o service correto onde o método foi colado!
-        sessaoEstudoService.excluirSessaoEVoltarTopicos(id);
-        return ResponseEntity.noContent().build();
-    }
-
     @PutMapping("/{id}")
-    public ResponseEntity<Void> atualizarAnotacoes(@PathVariable Long id,
-            @RequestBody java.util.Map<String, String> payload) {
-        String novasAnotacoes = payload.get("anotacoes");
-        sessaoEstudoService.atualizarAnotacoesSessao(id, novasAnotacoes);
+    public ResponseEntity<Void> atualizarAnotacoes(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        Long usuarioIdTemp = 1L;
+        String novasAnotacoes = body.get("anotacoes");
+        sessaoEstudoService.atualizarAnotacoesSessao(id, novasAnotacoes, usuarioIdTemp);
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> excluirSessao(@PathVariable Long id) {
+        Long usuarioIdTemp = 1L;
+        sessaoEstudoService.excluirSessaoEVoltarTopicos(id, usuarioIdTemp);
+        return ResponseEntity.noContent().build();
+    }
 }

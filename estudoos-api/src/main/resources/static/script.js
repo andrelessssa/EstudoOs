@@ -240,7 +240,7 @@ async function renderRevisao() {
   }
 }
 
-// 📖 Redireciona a revisão para a aba HOJE, destaca a matéria/assunto e carrega a sessão no caderno 🚀
+// 📖 Redireciona para a aba HOJE exibindo EXCLUSIVAMENTE o assunto em revisão 🚀
 async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
   revisaoAtiva = revisaoId;
   dataAtivaSessao = today();
@@ -265,10 +265,9 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
       const selMat = document.getElementById('session-mat');
       if (selMat) {
         selMat.value = matId;
-        await loadSessionTopics();
       }
 
-      // 🔴 DESTACAR A MATÉRIA/ASSUNTO EM REVISÃO NO TOPO 💡
+      // 🔴 DESTACA A MATÉRIA/ASSUNTO NO BANNER DO TOPO
       const hojeDateEl = document.getElementById('hoje-date');
       if (hojeDateEl) {
         hojeDateEl.innerHTML = `<span style="background:rgba(108,123,255,0.15); color:var(--accent); border:1px solid var(--accent); padding:4px 10px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; margin-top:4px;">
@@ -276,7 +275,20 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
         </span>`;
       }
 
-      // 🎯 VINCULA A SESSÃO DO ASSUNTO PARA PERMITIR SALVAR ALTERAÇÕES NO CADERNO
+      // 🎯 ISOLA APENAS O ASSUNTO EM REVISÃO NA LISTA DE "ASSUNTOS DA SESSÃO"
+      const elTopicsList = document.getElementById('session-topics-list');
+      if (elTopicsList) {
+        elTopicsList.innerHTML = `
+          <div class="topic-row concluido-banco" style="display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0.8rem; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--accent);">
+            <div class="topic-check checked"></div>
+            <div class="topic-name done" style="font-weight:700; color:var(--text);">
+              📌 ${topicoEncontrado.nome}
+            </div>
+            <span style="font-size:11px; color:var(--accent); margin-left:auto; font-weight:600;">Modo Revisão</span>
+          </div>`;
+      }
+
+      // 📖 CARREGA E VINCULA A SESSÃO DO ASSUNTO NO HISTÓRICO E NO CADERNO
       const sessaoDoTopico = sessoes.reverse().find(s => {
         const ids = s.topicosConcluidosIds || s.topicosIds || [];
         return ids.includes(parseInt(topicoEncontrado.id));
@@ -284,16 +296,21 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
 
       const notesEl = document.getElementById('session-notes');
       if (sessaoDoTopico) {
-        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para o PUT da sessão!
+        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para atualizar anotações no PUT
         if (notesEl) {
           notesEl.value = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
         }
+        exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
       } else {
         sessaoEmEdicaoId = null;
+        if (notesEl) {
+          notesEl.value = "";
+          autoGrowNotes(notesEl);
+        }
       }
 
-      // 🟢 Botão verde de Concluir Revisão
+      // 🟢 BOTÃO VERDE "Concluir Revisão"
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
         btnSave.innerHTML = '✅ Concluir Revisão';
@@ -306,7 +323,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
   }
 }
 
-// 🧹 Reseta o caderno, o banner e o botão
+// 🧹 Reseta o modo revisão e restaura o estado padrão
 function resetaModoSalvarSessao() {
   sessaoEmEdicaoId = null;
   revisaoAtiva = null;
@@ -332,7 +349,6 @@ async function saveSession() {
   // 🟢 MODO CONCLUIR REVISÃO AGENDADA
   if (revisaoAtiva) {
     try {
-      // 1. Se alterou o caderno e a sessão existe no banco, atualiza as notas primeiro!
       if (sessaoEmEdicaoId) {
         await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
           method: 'PUT',
@@ -341,7 +357,6 @@ async function saveSession() {
         });
       }
 
-      // 2. Conclui a revisão e agenda a próxima etapa na Curva de Ebbinghaus!
       const res = await fetch(`${API_URL}/api/revisoes/${revisaoAtiva}/concluir`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
@@ -450,14 +465,15 @@ async function renderHoje() {
 
     if (valorAtual) sel.value = valorAtual;
 
-    if (sel.value) {
-      await loadSessionTopics();
-    } else {
-      document.getElementById('session-topics-list').innerHTML =
-        '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    if (!revisaoAtiva) {
+      if (sel.value) {
+        await loadSessionTopics();
+      } else {
+        document.getElementById('session-topics-list').innerHTML =
+          '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+      }
+      await renderHistoricoSessaoPorData(dataAtivaSessao);
     }
-
-    await renderHistoricoSessaoPorData(dataAtivaSessao);
 
   } catch (error) {
     console.error("Erro na aba hoje:", error);
@@ -465,6 +481,8 @@ async function renderHoje() {
 }
 
 async function loadSessionTopics() {
+  if (revisaoAtiva) return; // Se estiver em revisão ativa, ignora a listagem geral
+
   const matId = document.getElementById('session-mat').value;
   const el = document.getElementById('session-topics-list');
   if (!el) return;
@@ -669,6 +687,41 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
 
 async function renderHistoricoSessaoHoje() {
   await renderHistoricoSessaoPorData(dataAtivaSessao);
+}
+
+// 🗂️ Exibe o Card da Sessão Clicada no Histórico
+async function exibirSessaoEspecificaNoHistorico(sessao) {
+  const hist = document.getElementById('session-history');
+  if (!hist) return;
+
+  try {
+    const resTopicos = await fetch(`${API_URL}/api/topicos`);
+    const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
+
+    const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(dataAtivaSessao);
+    const materiaObj = state.materias.find(m => m.id == sessao.materiaId);
+    const materiaNome = materiaObj ? materiaObj.nome : `Matéria`;
+
+    const idsTopicos = sessao.topicosConcluidosIds || sessao.topicosIds || [];
+    const nomesAssuntos = idsTopicos.map(id => {
+      const topico = todosTopicos.find(t => t.id == id);
+      return topico ? topico.nome : null;
+    }).filter(Boolean);
+
+    const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
+
+    hist.innerHTML = `
+      <div class="historico-card-destaque">
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    console.error("Erro ao renderizar card da sessão:", e);
+  }
 }
 
 // ─── MATÉRIAS & CONTROLE DE PAINÉIS ──────────────────────────────────────────

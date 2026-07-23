@@ -26,26 +26,26 @@ public class RevisaoController {
         this.revisaoService = revisaoService;
     }
 
-    // 🟢 Traz apenas as revisões de HOJE e ATRASADAS
     @GetMapping("/hoje")
     public ResponseEntity<List<RevisaoDTO>> listarRevisoesDoDia() {
-        return ResponseEntity.ok(revisaoService.listarRevisoesDoDia());
+        Long usuarioIdTemp = 1L;
+        return ResponseEntity.ok(revisaoService.listarRevisoesDoDiaPorUsuario(usuarioIdTemp));
     }
 
-    // 🟢 Marca a revisão como concluída e retorna JSON válido 🎯
     @PutMapping("/{id}/concluir")
     public ResponseEntity<Map<String, String>> concluirRevisao(@PathVariable Long id) {
-        revisaoService.concluirRevisao(id);
-        
+        Long usuarioIdTemp = 1L;
+        revisaoService.concluirRevisao(id, usuarioIdTemp);
+
         Map<String, String> resposta = new HashMap<>();
         resposta.put("mensagem", "Revisão concluída! Menos um conteúdo para esquecer. 🧠✓");
-        
+
         return ResponseEntity.ok(resposta);
     }
 
-    // 🟢 Alimenta os 3 cards do topo da tela de Revisão
     @GetMapping("/estatisticas")
     public ResponseEntity<Map<String, Long>> obterEstatisticas() {
-        return ResponseEntity.ok(revisaoService.obterEstatisticas());
+        Long usuarioIdTemp = 1L;
+        return ResponseEntity.ok(revisaoService.obterEstatisticasPorUsuario(usuarioIdTemp));
     }
 }

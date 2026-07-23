@@ -32,4 +32,9 @@ public class Revisao {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topico_id", nullable = false)
     private Topico topico; // Sabe exatamente qual assunto deve ser revisado
+
+    // 🟢 Novo vínculo com o Usuario
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 }
