@@ -1,6 +1,7 @@
 // 🌐 Configuração Base da API Java Spring Boot
 if (typeof API_BASE_URL === 'undefined') {
-    window.API_BASE_URL = 'http://localhost:8083/api';
+    const host = window.location.hostname;
+    window.API_BASE_URL = `http://${host}:8083/api`;
 }
 
 // 🛡️ Função utilitária central de requisições com JWT

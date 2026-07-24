@@ -1,0 +1,33 @@
+services:
+  # 🗄️ Serviço do Banco de Dados PostgreSQL
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: estudoos-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: estudoos
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ☕ Serviço da API Java Spring Boot
+  api-java:
+    build: .
+    container_name: estudoos-api
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/estudoos
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: 123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - postgres-db
+
+volumes:
+  postgres_data:
+  
