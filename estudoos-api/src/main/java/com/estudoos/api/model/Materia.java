@@ -1,5 +1,6 @@
 package com.estudoos.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -22,8 +23,9 @@ public class Materia {
     @Column(nullable = false, length = 7)
     private String cor;
 
-    // 🟢 Novo vinculo com o Usuario
-    @ManyToOne(fetch = FetchType.LAZY)
+    // 🟢 Ignora campos internos do proxy Usuario ao converter para JSON
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = false)
+    @JsonIgnoreProperties({"senha", "hibernateLazyInitializer", "handler"})
     private Usuario usuario;
 }

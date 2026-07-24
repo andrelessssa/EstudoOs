@@ -18,6 +18,7 @@ import com.estudoos.api.repository.MateriaRepository;
 import com.estudoos.api.repository.RevisaoRepository;
 import com.estudoos.api.repository.SessaoEstudoRepository;
 import com.estudoos.api.repository.TopicoRepository;
+import com.estudoos.api.repository.UsuarioRepository;
 
 @Service
 public class SessaoEstudoService {
@@ -26,17 +27,26 @@ public class SessaoEstudoService {
     private final MateriaRepository materiaRepository;
     private final TopicoRepository topicoRepository;
     private final RevisaoRepository revisaoRepository;
+    private final UsuarioRepository usuarioRepository;
 
     private static final int[] INTERVALOS_REVISAO = { 3, 7, 15, 30 };
 
     public SessaoEstudoService(SessaoEstudoRepository sessaoEstudoRepository,
                                MateriaRepository materiaRepository,
                                TopicoRepository topicoRepository,
-                               RevisaoRepository revisaoRepository) {
+                               RevisaoRepository revisaoRepository,
+                               UsuarioRepository usuarioRepository) {
         this.sessaoEstudoRepository = sessaoEstudoRepository;
         this.materiaRepository = materiaRepository;
         this.topicoRepository = topicoRepository;
         this.revisaoRepository = revisaoRepository;
+        this.usuarioRepository = usuarioRepository;
+    }
+
+    // 🟢 Método auxiliar para obter Usuário por e-mail do JWT
+    private Usuario obterUsuarioPorEmail(String email) {
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com e-mail: " + email));
     }
 
     // 🟢 1. Salva a sessão vinculando ao Usuário logado
@@ -65,7 +75,7 @@ public class SessaoEstudoService {
 
                 topicosEstudados.add(topico);
 
-                // 🔁 Gera agendamentos da Curva de Ebbinghaus vinculando o Usuario
+                // 🔁 Gera agendamentos da Curva de Ebbinghaus vinculando o Usuário
                 for (int i = 0; i < INTERVALOS_REVISAO.length; i++) {
                     int diasNoFuturo = INTERVALOS_REVISAO[i];
 
@@ -86,7 +96,14 @@ public class SessaoEstudoService {
         sessaoEstudoRepository.save(sessao);
     }
 
-    // 🟢 2. Listar sessões do Usuário logado
+    // Overload aceitando e-mail direto do Principal JWT
+    @Transactional
+    public void salvarSessaoDeHojePorEmail(SessaoDTO dto, String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        salvarSessaoDeHoje(dto, usuario);
+    }
+
+    // 🟢 2. Listar sessões do Usuário logado por ID
     @Transactional(readOnly = true)
     public List<SessaoDTO> listarPorUsuario(Long usuarioId) {
         return sessaoEstudoRepository.findByUsuarioId(usuarioId).stream()
@@ -101,9 +118,21 @@ public class SessaoEstudoService {
                 .collect(Collectors.toList());
     }
 
+    // Listar por e-mail do JWT
+    @Transactional(readOnly = true)
+    public List<SessaoDTO> listarPorEmailUsuario(String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        return listarPorUsuario(usuario.getId());
+    }
+
     // 🟢 3. Dias estudados do Usuário logado (para o calendário)
     public List<String> obterDiasEstudadosPorUsuario(Long usuarioId) {
         return sessaoEstudoRepository.findDistinctDatasEstudoByUsuarioId(usuarioId);
+    }
+
+    public List<String> obterDiasEstudadosPorEmail(String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        return obterDiasEstudadosPorUsuario(usuario.getId());
     }
 
     // 🟢 4. Obtém a última sessão da matéria filtrando por Usuário
@@ -113,7 +142,7 @@ public class SessaoEstudoService {
 
         if (sessoes.isEmpty()) {
             return null;
-        }
+        }git add .
 
         SessaoEstudo sessao = sessoes.get(0);
 
@@ -125,6 +154,11 @@ public class SessaoEstudoService {
                 sessao.getTopicos().stream().map(Topico::getNome).collect(Collectors.toList()),
                 sessao.getDataSessao()
         );
+    }
+
+    public SessaoDTO obterUltimaSessaoDaMateriaEEmail(Long materiaId, String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        return obterUltimaSessaoDaMateriaEUsuario(materiaId, usuario.getId());
     }
 
     // 🗑️ 5. Exclui a sessão e reverte tópicos garantindo o Usuário
@@ -144,6 +178,12 @@ public class SessaoEstudoService {
         sessaoEstudoRepository.delete(sessao);
     }
 
+    @Transactional
+    public void excluirSessaoEVoltarTopicosPorEmail(Long sessaoId, String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        excluirSessaoEVoltarTopicos(sessaoId, usuario.getId());
+    }
+
     // ✏️ 6. Atualiza anotações garantindo o Usuário
     @Transactional
     public void atualizarAnotacoesSessao(Long id, String novasAnotacoes, Long usuarioId) {
@@ -152,5 +192,11 @@ public class SessaoEstudoService {
 
         sessao.setAnotacoes(novasAnotacoes);
         sessaoEstudoRepository.save(sessao);
+    }
+
+    @Transactional
+    public void atualizarAnotacoesSessaoPorEmail(Long id, String novasAnotacoes, String email) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        atualizarAnotacoesSessao(id, novasAnotacoes, usuario.getId());
     }
 }
