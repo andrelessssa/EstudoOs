@@ -142,7 +142,7 @@ public class SessaoEstudoService {
 
         if (sessoes.isEmpty()) {
             return null;
-        }git add .
+        }
 
         SessaoEstudo sessao = sessoes.get(0);
 
