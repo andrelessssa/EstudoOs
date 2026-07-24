@@ -42,7 +42,6 @@ public class SessaoEstudoService {
     // 🟢 1. Salva a sessão vinculando ao Usuário logado
     @Transactional
     public void salvarSessaoDeHoje(SessaoDTO dto, Usuario usuarioLogado) {
-        // Busca a Matéria associada garantindo que pertence ao usuário
         Materia materia = materiaRepository.findByIdAndUsuarioId(dto.materiaId(), usuarioLogado.getId())
                 .orElseThrow(() -> new RuntimeException("Matéria não encontrada com o ID: " + dto.materiaId()));
 
@@ -50,7 +49,7 @@ public class SessaoEstudoService {
         sessao.setDataSessao(LocalDate.now());
         sessao.setAnotacoes(dto.anotacoes());
         sessao.setMateria(materia);
-        sessao.setUsuario(usuarioLogado); // 🔒 Vincula a sessão ao usuário logado
+        sessao.setUsuario(usuarioLogado);
 
         List<Long> topicosIds = dto.topicosConcluidosIds();
         List<Topico> topicosEstudados = new ArrayList<>();
@@ -76,7 +75,7 @@ public class SessaoEstudoService {
                     revisao.setEtapa(i + 1);
                     revisao.setFeita(false);
                     revisao.setTopico(topico);
-                    revisao.setUsuario(usuarioLogado); // 🔒 Vincula a revisão ao usuário logado!
+                    revisao.setUsuario(usuarioLogado);
 
                     revisaoRepository.save(revisao);
                 }

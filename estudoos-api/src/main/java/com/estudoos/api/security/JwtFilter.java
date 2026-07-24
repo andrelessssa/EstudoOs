@@ -5,6 +5,7 @@ import java.util.Collections;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -25,8 +26,16 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        // 🛑 Ignora o filtro JWT para rotas públicas e chamadas OPTIONS (preflight CORS)
-        return path.startsWith("/api/auth") || path.startsWith("/auth") || "OPTIONS".equalsIgnoreCase(request.getMethod());
+
+        // 🛑 Ignora o filtro JWT para rotas de auth, preflight CORS e recursos estáticos do frontend
+        return path.startsWith("/api/auth") || 
+               path.startsWith("/auth") || 
+               path.equals("/") || 
+               path.endsWith(".html") || 
+               path.endsWith(".js") || 
+               path.endsWith(".css") || 
+               path.endsWith(".ico") || 
+               "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override
@@ -36,11 +45,12 @@ public class JwtFilter extends OncePerRequestFilter {
         String token = recuperarToken(request);
 
         if (token != null && tokenProvider.validarToken(token)) {
-            // 🟢 Usando o nome exato do seu método: getEmailDoToken
             String email = tokenProvider.getEmailDoToken(token);
             
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                     email, null, Collections.emptyList());
+            
+            auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 

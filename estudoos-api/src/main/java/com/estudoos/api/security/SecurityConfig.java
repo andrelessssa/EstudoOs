@@ -38,8 +38,8 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 🔓 1. Libera totalmente as rotas de Auth
-                .requestMatchers("/api/auth/**", "/auth/**").permitAll()
+                // 🔓 1. Libera rotas de Auth e rota de Erro do Spring
+                .requestMatchers("/api/auth/**", "/auth/**", "/error").permitAll()
                 
                 // 🔓 2. Libera todos os arquivos estáticos (HTML, JS, CSS, imagens)
                 .requestMatchers("/", "/index.html", "/*.js", "/*.css", "/static/**", "/favicon.ico").permitAll()
@@ -47,7 +47,7 @@ public class SecurityConfig {
                 // 🔓 3. Libera chamadas OPTIONS do navegador
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 
-                // 🔒 4. Exige JWT para todo o resto (/api/materias, /api/sessoes, etc)
+                // 🔒 4. Exige JWT para o restante da API
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
