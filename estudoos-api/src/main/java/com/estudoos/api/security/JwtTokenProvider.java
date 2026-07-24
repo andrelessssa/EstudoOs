@@ -14,7 +14,7 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtTokenProvider {
 
-    // 🔑 Chave secreta para assinar o token (mantenha em segredo!)
+    // 🔑 Chave secreta para assinar o token
     private final String SECRET_KEY = "sua_chave_secreta_super_segura_e_longa_para_o_estudoos_jwt";
     private final long EXPIRATION_TIME = 86400000; // 24 horas em milissegundos
 
@@ -22,7 +22,16 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
     }
 
-    // 🟢 Gera o token JWT incluindo o email e o ID do usuário
+    // 🟢 Método auxiliar centralizado para extrair os Claims
+    private Claims getClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    // 🟢 Gera o token JWT incluindo o e-mail e o ID do usuário
     public String gerarToken(String email, Long usuarioId) {
         Date agora = new Date();
         Date validade = new Date(agora.getTime() + EXPIRATION_TIME);
@@ -36,35 +45,24 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    // 🟢 Extrai o email do token
+    // 🟢 Extrai o e-mail do token
     public String getEmailDoToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        return claims.getSubject();
+        return getClaims(token).getSubject();
     }
 
-    // 🟢 Extrai o ID do usuário do token
+    // 🟢 Extrai o ID do usuário com conversão segura (evita ClassCastException de Integer/Long)
     public Long getUsuarioIdDoToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        return claims.get("id", Long.class);
+        Object idObj = getClaims(token).get("id");
+        if (idObj instanceof Number number) {
+            return number.longValue();
+        }
+        return null;
     }
 
-    // 🟢 Valida a autenticidade do token
+    // 🟢 Valida a autenticidade e expiração do token
     public boolean validarToken(String token) {
         try {
-            Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token);
+            getClaims(token); // Se estiver expirado ou adulterado, lança exceção aqui
             return true;
         } catch (Exception e) {
             return false;

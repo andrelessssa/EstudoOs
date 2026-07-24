@@ -1,13 +1,10 @@
-// ─── CONFIGURAÇÃO DA API ──────────────────────────────────────────────────────
-const API_URL = ''; // Deixe vazio se o frontend for servido pelo próprio Spring Boot
-
 // ─── CORES ───────────────────────────────────────────────────────────────────
 const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf', '#fb7185', '#60a5fa', '#a3e635', '#f97316'];
 
 // ─── STATE LOCAL ─────────────────────────────────────────────────────────────
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = [];
-let revisaoAtiva = null; // 📌 Guarda o ID da revisão em andamento
+let revisaoAtiva = null;
 let modoEdicao = false;
 let sessaoEmEdicaoId = null;
 let dataAtivaSessao = today();
@@ -23,7 +20,8 @@ function showPage(id) {
   const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro'];
   const idx = pages.indexOf(id);
   if (idx !== -1) {
-    document.querySelectorAll('.tab')[idx]?.classList.add('active');
+    const tabs = document.querySelectorAll('.tab');
+    if (tabs[idx]) tabs[idx].classList.add('active');
   }
 
   if (id !== 'hoje' && id !== 'revisao') {
@@ -58,6 +56,8 @@ function dateStr(d) {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 async function renderDashboard() {
+  if (!localStorage.getItem('estudoos_token')) return;
+
   const dashDateEl = document.getElementById('dash-date');
   if (dashDateEl) {
     dashDateEl.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -65,10 +65,12 @@ async function renderDashboard() {
 
   try {
     const [resMat, resRev, resDias] = await Promise.all([
-      fetch(`${API_URL}/api/materias`),
-      fetch(`${API_URL}/api/revisoes/hoje`),
-      fetch(`${API_URL}/api/sessoes/calendario/estudados`)
+      fetchComAuth('/materias'),
+      fetchComAuth('/revisoes/hoje'),
+      fetchComAuth('/sessoes/calendario/estudados')
     ]);
+
+    if (!resMat.ok || !resRev.ok || !resDias.ok) return;
 
     state.materias = await resMat.json();
     const revisoesHoje = await resRev.json();
@@ -76,7 +78,8 @@ async function renderDashboard() {
 
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
-        const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
+        const resTopicos = await fetchComAuth(`/topicos/materia/${m.id}`);
+        if (!resTopicos.ok) return { ...m, topicos: [] };
         const topicos = await resTopicos.json();
         return { ...m, topicos: topicos };
       } catch (e) {
@@ -97,32 +100,39 @@ async function renderDashboard() {
     const total = state.questions.filter(q => q.result).length;
     const rate = total ? Math.round(correct / total * 100) + '%' : '—';
 
-    document.getElementById('dash-studied').textContent = studied;
-    document.getElementById('dash-correct').textContent = correct;
-    document.getElementById('dash-rate').textContent = rate;
-    document.getElementById('dash-reviews').textContent = revisoesHoje.length;
+    const elStudied = document.getElementById('dash-studied');
+    const elCorrect = document.getElementById('dash-correct');
+    const elRate = document.getElementById('dash-rate');
+    const elReviews = document.getElementById('dash-reviews');
+
+    if (elStudied) elStudied.textContent = studied;
+    if (elCorrect) elCorrect.textContent = correct;
+    if (elRate) elRate.textContent = rate;
+    if (elReviews) elReviews.textContent = revisoesHoje.length;
 
     const pl = document.getElementById('dash-progress-list');
-    if (!materiasComTopicos.length) {
-      pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
-    } else {
-      pl.innerHTML = materiasComTopicos.map((m, i) => {
-        const lista = m.topicos || [];
-        const tot = lista.length;
-        const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true).length;
-        const pct = tot ? Math.round(done / tot * 100) : 0;
-        const color = m.cor || COLORS[i % COLORS.length];
+    if (pl) {
+      if (!materiasComTopicos.length) {
+        pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
+      } else {
+        pl.innerHTML = materiasComTopicos.map((m, i) => {
+          const lista = m.topicos || [];
+          const tot = lista.length;
+          const done = lista.filter(t => t.concluido === true || t.concluido === 'true' || t.done === true).length;
+          const pct = tot ? Math.round(done / tot * 100) : 0;
+          const color = m.cor || COLORS[i % COLORS.length];
 
-        return `<div style="margin-bottom:.85rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <span style="font-size:13px;font-weight:500;">${m.nome}</span>
-            <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">${done}/${tot} · ${pct}%</span>
-          </div>
-          <div class="progress-track">
-            <div class="progress-fill" style="width:${pct}%;background:${color};"></div>
-          </div>
-        </div>`;
-      }).join('');
+          return `<div style="margin-bottom:.85rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:13px;font-weight:500;">${m.nome}</span>
+              <span style="font-size:12px;color:var(--muted);font-family:var(--mono);">${done}/${tot} · ${pct}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${pct}%;background:${color};"></div>
+            </div>
+          </div>`;
+        }).join('');
+      }
     }
 
     const cal = document.getElementById('dash-calendar');
@@ -176,13 +186,17 @@ async function irParaDataEspecifica(dataSelecionada) {
 
 // ─── REVISÃO ESPAÇADA & FILA ─────────────────────────────────────────────────
 async function renderRevisao() {
+  if (!localStorage.getItem('estudoos_token')) return;
+
   const elFila = document.getElementById('rev-queue') || document.getElementById('revisoes-list');
 
   try {
     const [resHoje, resStats] = await Promise.all([
-      fetch(`${API_URL}/api/revisoes/hoje`),
-      fetch(`${API_URL}/api/revisoes/estatisticas`)
+      fetchComAuth('/revisoes/hoje'),
+      fetchComAuth('/revisoes/estatisticas')
     ]);
+
+    if (!resHoje.ok || !resStats.ok) return;
 
     const revisoesHojeEAtrasadas = await resHoje.json();
     const stats = await resStats.json();
@@ -240,7 +254,6 @@ async function renderRevisao() {
   }
 }
 
-// 📖 Redireciona para a aba HOJE exibindo EXCLUSIVAMENTE o assunto em revisão 🚀
 async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
   revisaoAtiva = revisaoId;
   dataAtivaSessao = today();
@@ -248,8 +261,8 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
 
   try {
     const [resTopicos, resSessoes] = await Promise.all([
-      fetch(`${API_URL}/api/topicos`),
-      fetch(`${API_URL}/api/sessoes`)
+      fetchComAuth('/topicos'),
+      fetchComAuth('/sessoes')
     ]);
 
     const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
@@ -263,11 +276,8 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
       const materiaNome = materiaObj ? materiaObj.nome : 'Matéria';
 
       const selMat = document.getElementById('session-mat');
-      if (selMat) {
-        selMat.value = matId;
-      }
+      if (selMat) selMat.value = matId;
 
-      // 🔴 DESTACA A MATÉRIA/ASSUNTO NO BANNER DO TOPO
       const hojeDateEl = document.getElementById('hoje-date');
       if (hojeDateEl) {
         hojeDateEl.innerHTML = `<span style="background:rgba(108,123,255,0.15); color:var(--accent); border:1px solid var(--accent); padding:4px 10px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; margin-top:4px;">
@@ -275,7 +285,6 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
         </span>`;
       }
 
-      // 🎯 ISOLA APENAS O ASSUNTO EM REVISÃO NA LISTA DE "ASSUNTOS DA SESSÃO"
       const elTopicsList = document.getElementById('session-topics-list');
       if (elTopicsList) {
         elTopicsList.innerHTML = `
@@ -288,7 +297,6 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
           </div>`;
       }
 
-      // 📖 CARREGA E VINCULA A SESSÃO DO ASSUNTO NO HISTÓRICO E NO CADERNO
       const sessaoDoTopico = sessoes.reverse().find(s => {
         const ids = s.topicosConcluidosIds || s.topicosIds || [];
         return ids.includes(parseInt(topicoEncontrado.id));
@@ -296,7 +304,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
 
       const notesEl = document.getElementById('session-notes');
       if (sessaoDoTopico) {
-        sessaoEmEdicaoId = sessaoDoTopico.id; // Guarda o ID para atualizar anotações no PUT
+        sessaoEmEdicaoId = sessaoDoTopico.id;
         if (notesEl) {
           notesEl.value = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
@@ -310,7 +318,6 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
         }
       }
 
-      // 🟢 BOTÃO VERDE "Concluir Revisão"
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
         btnSave.innerHTML = '✅ Concluir Revisão';
@@ -323,7 +330,6 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
   }
 }
 
-// 🧹 Reseta o modo revisão e restaura o estado padrão
 function resetaModoSalvarSessao() {
   sessaoEmEdicaoId = null;
   revisaoAtiva = null;
@@ -342,30 +348,27 @@ function resetaModoSalvarSessao() {
   }
 }
 
-// 💾 Salva a sessão OU Conclui a Revisão (salvando as anotações editadas juntas!)
 async function saveSession() {
-  const notes = document.getElementById('session-notes').value.trim();
+  const notesEl = document.getElementById('session-notes');
+  const notes = notesEl ? notesEl.value.trim() : '';
 
-  // 🟢 MODO CONCLUIR REVISÃO AGENDADA
   if (revisaoAtiva) {
     try {
       if (sessaoEmEdicaoId) {
-        await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
+        await fetchComAuth(`/sessoes/${sessaoEmEdicaoId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ anotacoes: notes })
         });
       }
 
-      const res = await fetch(`${API_URL}/api/revisoes/${revisaoAtiva}/concluir`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }
+      const res = await fetchComAuth(`/revisoes/${revisaoAtiva}/concluir`, {
+        method: 'PUT'
       });
 
       if (res.ok) {
         alert("Revisão concluída e anotação atualizada com sucesso! 🧠✨");
         resetaModoSalvarSessao();
-        showPage('revisao'); // Volta para a fila de revisões
+        showPage('revisao');
       } else {
         alert("Erro ao concluir revisão no servidor.");
       }
@@ -376,12 +379,10 @@ async function saveSession() {
     return;
   }
 
-  // 🔄 MODO EDIÇÃO DE ANOTAÇÃO NORMAL
   if (sessaoEmEdicaoId) {
     try {
-      const res = await fetch(`${API_URL}/api/sessoes/${sessaoEmEdicaoId}`, {
+      const res = await fetchComAuth(`/sessoes/${sessaoEmEdicaoId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ anotacoes: notes })
       });
 
@@ -397,8 +398,8 @@ async function saveSession() {
     return;
   }
 
-  // 💾 MODO SALVAR NOVA SESSÃO
-  const matId = document.getElementById('session-mat').value;
+  const matEl = document.getElementById('session-mat');
+  const matId = matEl ? matEl.value : '';
   if (!matId) {
     alert('Selecione uma matéria primeiro.');
     return;
@@ -416,9 +417,8 @@ async function saveSession() {
   };
 
   try {
-    const res = await fetch(`${API_URL}/api/sessoes`, {
+    const res = await fetchComAuth('/sessoes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...sessaoDTO })
     });
 
@@ -439,6 +439,8 @@ async function saveSession() {
 
 // ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
 async function renderHoje() {
+  if (!localStorage.getItem('estudoos_token')) return;
+
   const sel = document.getElementById('session-mat');
   if (!sel) return;
 
@@ -451,7 +453,9 @@ async function renderHoje() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/api/materias`);
+    const res = await fetchComAuth('/materias');
+    if (!res.ok) return;
+
     state.materias = await res.json();
 
     const valorAtual = sel.value;
@@ -469,8 +473,8 @@ async function renderHoje() {
       if (sel.value) {
         await loadSessionTopics();
       } else {
-        document.getElementById('session-topics-list').innerHTML =
-          '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+        const topList = document.getElementById('session-topics-list');
+        if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
       }
       await renderHistoricoSessaoPorData(dataAtivaSessao);
     }
@@ -481,9 +485,10 @@ async function renderHoje() {
 }
 
 async function loadSessionTopics() {
-  if (revisaoAtiva) return; // Se estiver em revisão ativa, ignora a listagem geral
+  if (revisaoAtiva) return;
 
-  const matId = document.getElementById('session-mat').value;
+  const matEl = document.getElementById('session-mat');
+  const matId = matEl ? matEl.value : '';
   const el = document.getElementById('session-topics-list');
   if (!el) return;
 
@@ -493,7 +498,9 @@ async function loadSessionTopics() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/api/topicos/materia/${matId}`);
+    const res = await fetchComAuth(`/topicos/materia/${matId}`);
+    if (!res.ok) return;
+
     const topicos = await res.json();
 
     if (!topicos || !topicos.length) {
@@ -531,18 +538,50 @@ async function irParaCadernoMateria(materiaId, topicoId) {
   showPage('hoje');
 
   const selMat = document.getElementById('session-mat');
-  if (selMat) {
-    selMat.value = materiaId;
-  }
+  if (selMat) selMat.value = materiaId;
 
   await loadSessionTopics();
   await tratarCliqueTopico(topicoId, true);
 }
 
+// 🟢 Carrega a sessão diretamente no caderno ao clicar no histórico
+async function carregarSessaoDiretaNoCaderno(sessaoId) {
+  try {
+    const resSessoes = await fetchComAuth('/sessoes');
+    if (!resSessoes.ok) return;
+
+    const sessoes = await resSessoes.json();
+    const sessaoEncontrada = sessoes.find(s => s.id == sessaoId);
+
+    if (sessaoEncontrada) {
+      sessaoEmEdicaoId = sessaoEncontrada.id;
+      const selMat = document.getElementById('session-mat');
+      if (selMat && sessaoEncontrada.materiaId) {
+        selMat.value = sessaoEncontrada.materiaId;
+        await loadSessionTopics();
+      }
+
+      const notesEl = document.getElementById('session-notes');
+      if (notesEl) {
+        notesEl.value = sessaoEncontrada.anotacoes || "";
+        autoGrowNotes(notesEl);
+      }
+
+      const btnSave = document.getElementById('btn-save-session');
+      if (btnSave) {
+        btnSave.innerHTML = '🔄 Atualizar anotação';
+        btnSave.style.background = 'var(--accent)';
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao carregar sessão direta:", e);
+  }
+}
+
 async function tratarCliqueTopico(topicId, jaConcluido) {
   if (jaConcluido) {
     try {
-      const resSessoes = await fetch(`${API_URL}/api/sessoes`);
+      const resSessoes = await fetchComAuth('/sessoes');
       if (!resSessoes.ok) throw new Error();
 
       const sessoes = await resSessoes.json();
@@ -617,8 +656,8 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
 
   try {
     const [resSessoes, resTopicos] = await Promise.all([
-      fetch(`${API_URL}/api/sessoes`),
-      fetch(`${API_URL}/api/topicos`)
+      fetchComAuth('/sessoes'),
+      fetchComAuth('/topicos')
     ]);
 
     if (!resSessoes.ok) throw new Error();
@@ -689,13 +728,12 @@ async function renderHistoricoSessaoHoje() {
   await renderHistoricoSessaoPorData(dataAtivaSessao);
 }
 
-// 🗂️ Exibe o Card da Sessão Clicada no Histórico
 async function exibirSessaoEspecificaNoHistorico(sessao) {
   const hist = document.getElementById('session-history');
   if (!hist) return;
 
   try {
-    const resTopicos = await fetch(`${API_URL}/api/topicos`);
+    const resTopicos = await fetchComAuth('/topicos');
     const todosTopicos = resTopicos.ok ? await resTopicos.json() : [];
 
     const dataFormatada = sessao.dataSessao ? dateStr(sessao.dataSessao) : dateStr(dataAtivaSessao);
@@ -743,11 +781,15 @@ function alternarModoEdicao() {
 }
 
 async function renderMaterias() {
+  if (!localStorage.getItem('estudoos_token')) return;
+
   const el = document.getElementById('materias-list');
   if (!el) return;
 
   try {
-    const res = await fetch(`${API_URL}/api/materias`);
+    const res = await fetchComAuth('/materias');
+    if (!res.ok) return;
+
     state.materias = await res.json();
 
     if (!state.materias || !state.materias.length) {
@@ -757,7 +799,8 @@ async function renderMaterias() {
 
     const materiasComTopicos = await Promise.all(state.materias.map(async (m) => {
       try {
-        const resTopicos = await fetch(`${API_URL}/api/topicos/materia/${m.id}`);
+        const resTopicos = await fetchComAuth(`/topicos/materia/${m.id}`);
+        if (!resTopicos.ok) return { ...m, topicos: [] };
         const topicos = await resTopicos.json();
         return { ...m, topicos: topicos };
       } catch (e) {
@@ -819,42 +862,64 @@ async function renderMaterias() {
 }
 
 function openAddMateria() {
-  document.getElementById('mat-id-edit').value = '';
-  document.getElementById('mat-name').value = '';
-  document.getElementById('mat-topics').value = '';
-  document.getElementById('materias-panel').style.display = 'block';
-  document.getElementById('mat-name').focus();
+  const idEl = document.getElementById('mat-id-edit');
+  const nameEl = document.getElementById('mat-name');
+  const topEl = document.getElementById('mat-topics');
+  const panel = document.getElementById('materias-panel');
+
+  if (idEl) idEl.value = '';
+  if (nameEl) nameEl.value = '';
+  if (topEl) topEl.value = '';
+  if (panel) panel.style.display = 'block';
+  if (nameEl) nameEl.focus();
 }
 
 function closeMateriaPanel() {
-  document.getElementById('materias-panel').style.display = 'none';
-  document.getElementById('mat-id-edit').value = '';
+  const panel = document.getElementById('materias-panel');
+  const idEl = document.getElementById('mat-id-edit');
+  if (panel) panel.style.display = 'none';
+  if (idEl) idEl.value = '';
 }
 
 function openEditMateriaPanel(id, nome) {
-  document.getElementById('mat-id-edit').value = id;
-  document.getElementById('mat-name').value = nome;
-  document.getElementById('mat-topics').value = '';
-  document.getElementById('materias-panel').style.display = 'block';
-  document.getElementById('mat-name').focus();
+  const idEl = document.getElementById('mat-id-edit');
+  const nameEl = document.getElementById('mat-name');
+  const topEl = document.getElementById('mat-topics');
+  const panel = document.getElementById('materias-panel');
+
+  if (idEl) idEl.value = id;
+  if (nameEl) nameEl.value = nome;
+  if (topEl) topEl.value = '';
+  if (panel) panel.style.display = 'block';
+  if (nameEl) nameEl.focus();
 }
 
 function openEditTopicoPanel(id, nome) {
-  document.getElementById('topico-id-edit').value = id;
-  document.getElementById('topico-name-edit').value = nome;
-  document.getElementById('topico-panel').style.display = 'block';
-  document.getElementById('topico-name-edit').focus();
+  const idEl = document.getElementById('topico-id-edit');
+  const nameEl = document.getElementById('topico-name-edit');
+  const panel = document.getElementById('topico-panel');
+
+  if (idEl) idEl.value = id;
+  if (nameEl) nameEl.value = nome;
+  if (panel) panel.style.display = 'block';
+  if (nameEl) nameEl.focus();
 }
 
 function closeTopicoPanel() {
-  document.getElementById('topico-panel').style.display = 'none';
-  document.getElementById('topico-id-edit').value = '';
+  const panel = document.getElementById('topico-panel');
+  const idEl = document.getElementById('topico-id-edit');
+  if (panel) panel.style.display = 'none';
+  if (idEl) idEl.value = '';
 }
 
 async function saveMateria() {
-  const matId = document.getElementById('mat-id-edit').value;
-  const name = document.getElementById('mat-name').value.trim();
-  const topicsRaw = document.getElementById('mat-topics').value;
+  const idEl = document.getElementById('mat-id-edit');
+  const nameEl = document.getElementById('mat-name');
+  const topEl = document.getElementById('mat-topics');
+
+  const matId = idEl ? idEl.value : '';
+  const name = nameEl ? nameEl.value.trim() : '';
+  const topicsRaw = topEl ? topEl.value : '';
 
   if (!name) {
     alert('Informe o nome da matéria.');
@@ -865,16 +930,14 @@ async function saveMateria() {
 
   try {
     if (matId) {
-      await fetch(`${API_URL}/api/materias/${matId}`, {
+      await fetchComAuth(`/materias/${matId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome: name })
       });
 
       if (novosTopicos.length > 0) {
-        await fetch(`${API_URL}/api/topicos/materia/${matId}`, {
+        await fetchComAuth(`/topicos/materia/${matId}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(novosTopicos)
         });
       }
@@ -885,9 +948,8 @@ async function saveMateria() {
         cor: COLORS[state.materias.length % COLORS.length]
       };
 
-      await fetch(`${API_URL}/api/materias`, {
+      await fetchComAuth('/materias', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(materiaDTO)
       });
     }
@@ -905,7 +967,7 @@ async function deleteMateria(idMateria) {
   if (!confirm('Deseja excluir a matéria e todos os seus assuntos?')) return;
 
   try {
-    const res = await fetch(`${API_URL}/api/materias/${idMateria}`, {
+    const res = await fetchComAuth(`/materias/${idMateria}`, {
       method: 'DELETE'
     });
 
@@ -921,8 +983,11 @@ async function deleteMateria(idMateria) {
 }
 
 async function salvarEdicaoTopico() {
-  const topicoId = document.getElementById('topico-id-edit').value;
-  const novoNome = document.getElementById('topico-name-edit').value.trim();
+  const idEl = document.getElementById('topico-id-edit');
+  const nameEl = document.getElementById('topico-name-edit');
+
+  const topicoId = idEl ? idEl.value : '';
+  const novoNome = nameEl ? nameEl.value.trim() : '';
 
   if (!novoNome) {
     alert("Informe o nome do assunto.");
@@ -930,9 +995,8 @@ async function salvarEdicaoTopico() {
   }
 
   try {
-    const res = await fetch(`${API_URL}/api/topicos/${topicoId}`, {
+    const res = await fetchComAuth(`/topicos/${topicoId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nome: novoNome })
     });
 
@@ -951,7 +1015,7 @@ async function deleteTopico(idTopico) {
   if (!confirm('Deseja realmente excluir este assunto?')) return;
 
   try {
-    const res = await fetch(`${API_URL}/api/topicos/${idTopico}`, {
+    const res = await fetchComAuth(`/topicos/${idTopico}`, {
       method: 'DELETE'
     });
 
@@ -968,11 +1032,13 @@ async function deleteTopico(idTopico) {
 
 // ─── QUESTÕES & POMODORO ──────────────────────────────────────────────────────
 function openAddQuestion() {
-  document.getElementById('question-panel').style.display = 'block';
+  const panel = document.getElementById('question-panel');
+  if (panel) panel.style.display = 'block';
 }
 
 function closeQuestionPanel() {
-  document.getElementById('question-panel').style.display = 'none';
+  const panel = document.getElementById('question-panel');
+  if (panel) panel.style.display = 'none';
 }
 
 function renderQuestoes() {
@@ -990,16 +1056,54 @@ function updatePomoDisplay() {
   if (disp) disp.textContent = `${m}:${s}`;
 }
 
-// ─── INIT & LISTENERS ─────────────────────────────────────────────────────────
-document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-document.getElementById('hoje-date').textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+// ─── CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO ────────────────────────────────
+function verificarAutenticacaoEInicializar() {
+  const token = localStorage.getItem('estudoos_token');
+  const usuarioRaw = localStorage.getItem('estudoos_usuario');
+  const authModal = document.getElementById('auth-modal');
 
-const notesInput = document.getElementById('session-notes');
-if (notesInput) {
-  notesInput.addEventListener('input', function () {
-    autoGrowNotes(this);
-  });
+  if (!token) {
+    if (authModal) authModal.style.display = 'flex';
+    return;
+  }
+
+  if (authModal) authModal.style.display = 'none';
+
+  if (usuarioRaw) {
+    try {
+      const usuario = JSON.parse(usuarioRaw);
+      const greetingEl = document.getElementById('dash-greeting');
+      const userDisplayEl = document.getElementById('user-display');
+
+      if (greetingEl) greetingEl.textContent = `Bom estudo, ${usuario.nome}! 👋`;
+      if (userDisplayEl) userDisplayEl.textContent = `👤 ${usuario.nome}`;
+    } catch (e) {
+      console.error("Erro ao carregar dados do usuário:", e);
+    }
+  }
+
+  renderDashboard();
+  updatePomoDisplay();
 }
 
-renderDashboard();
-updatePomoDisplay();
+// ─── INIT & LISTENERS ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const dashDateEl = document.getElementById('dash-date');
+  if (dashDateEl) {
+    dashDateEl.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  const hojeDateEl = document.getElementById('hoje-date');
+  if (hojeDateEl) {
+    hojeDateEl.textContent = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  const notesInput = document.getElementById('session-notes');
+  if (notesInput) {
+    notesInput.addEventListener('input', function () {
+      autoGrowNotes(this);
+    });
+  }
+
+  verificarAutenticacaoEInicializar();
+});

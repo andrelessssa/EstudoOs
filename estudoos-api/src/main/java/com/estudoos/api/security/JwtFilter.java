@@ -23,20 +23,24 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, 
-                                    HttpServletResponse response, 
-                                    FilterChain filterChain) throws ServletException, IOException {
-        
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        // 🛑 Ignora o filtro JWT para rotas públicas e chamadas OPTIONS (preflight CORS)
+        return path.startsWith("/api/auth") || path.startsWith("/auth") || "OPTIONS".equalsIgnoreCase(request.getMethod());
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
         String token = recuperarToken(request);
 
         if (token != null && tokenProvider.validarToken(token)) {
+            // 🟢 Usando o nome exato do seu método: getEmailDoToken
             String email = tokenProvider.getEmailDoToken(token);
-            Long usuarioId = tokenProvider.getUsuarioIdDoToken(token);
-
-            // Cria a autenticação interna do Spring usando o ID e Email do usuário
-            UsernamePasswordAuthenticationToken auth = 
-                new UsernamePasswordAuthenticationToken(email, usuarioId, Collections.emptyList());
-
+            
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    email, null, Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(auth);
         }
 
@@ -44,9 +48,9 @@ public class JwtFilter extends OncePerRequestFilter {
     }
 
     private String recuperarToken(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
         }
         return null;
     }

@@ -20,8 +20,8 @@ public interface SessaoEstudoRepository extends JpaRepository<SessaoEstudo, Long
     // 🟢 Busca uma sessão específica garantindo que pertence ao usuário
     Optional<SessaoEstudo> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    // 🟢 Busca datas distintas de estudos APENAS do usuário logado (para o calendário)
-    @Query("SELECT DISTINCT CAST(s.dataSessao AS string) FROM SessaoEstudo s WHERE s.usuario.id = :usuarioId")
+    // 🟢 CORRIGIDO: Query nativa em SQL do PostgreSQL garantindo os nomes das colunas físicas (data_sessao e usuario_id)
+    @Query(value = "SELECT DISTINCT CAST(s.data_sessao AS VARCHAR) FROM sessao_estudo s WHERE s.usuario_id = :usuarioId", nativeQuery = true)
     List<String> findDistinctDatasEstudoByUsuarioId(@Param("usuarioId") Long usuarioId);
 
     // 🟢 Busca a última sessão de estudos de uma matéria garantindo o usuário

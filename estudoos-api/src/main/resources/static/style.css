@@ -1,5 +1,5 @@
 :root {
-  /* ── Superfícies (mesmas do app de treino) ── */
+  /* ── Superfícies ── */
   --bg: #0A0E14;
   --surface: #141A24;
   --surface2: #1B2330;
@@ -11,11 +11,9 @@
   --text: #F2F5F9;
   --muted: #8D9AB0;
 
-  /* ── Accents (fire/gold do treino no lugar de indigo/purple) ── */
+  /* ── Accents ── */
   --accent: #FF5A3C;
-  /* fire — ações principais */
   --accent2: #FFB020;
-  /* gold — destaque secundário */
 
   /* ── Status ── */
   --green: #4ADE80;
@@ -30,7 +28,7 @@
   --teal: #2dd4bf;
   --coral: #FF5A3C;
 
-  /* ── Fontes (mesmas do app de treino) ── */
+  /* ── Fontes & Raios ── */
   --font: 'Inter', sans-serif;
   --font-display: 'Oswald', sans-serif;
   --mono: 'JetBrains Mono', monospace;
@@ -44,7 +42,6 @@
   box-sizing: border-box;
 }
 
-/* 🟢 Corpo do site configurado para aceitar rolagem infinita de altura */
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -56,7 +53,52 @@ body {
   background-image: radial-gradient(circle at 20% 0%, rgba(255, 90, 60, 0.05), transparent 45%);
 }
 
-/* NAV */
+/* ── Typography Override (Oswald para títulos) ── */
+h1,
+h2,
+h3,
+.timer-val,
+.stat-val,
+.big-number,
+.subject-name,
+.card-title,
+.section-title,
+.hero-title,
+.page-title,
+.modal-title,
+.tab-label,
+.level-name {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+body,
+p,
+span,
+label,
+input,
+textarea,
+select,
+button,
+li,
+td,
+th {
+  font-family: var(--font);
+}
+
+code,
+pre,
+.mono,
+[class*="mono"],
+[class*="code"],
+.timer-clock,
+.streak-val,
+.xp-val {
+  font-family: var(--mono);
+}
+
+/* ── NAV ── */
 .nav {
   display: flex;
   align-items: center;
@@ -106,10 +148,9 @@ body {
   border-bottom-color: var(--accent);
 }
 
-/* 🟢 LAYOUT - Ajustado para que as páginas expandam verticalmente sem amarras */
+/* ── LAYOUT ── */
 .page {
   display: none !important;
-  /* 🟢 Garante que as outras abas fiquem 100% invisíveis */
   padding: 1.5rem;
   max-width: 1100px;
   margin: 0 auto;
@@ -118,58 +159,66 @@ body {
 
 .page.active {
   display: block !important;
-  /* 🟢 Exibe apenas a aba ativa atual */
 }
 
-/* CARDS */
-/* 🟢 Substitua ou adicione estas regras no seu style.css: */
-
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-}
-
-.cal-day {
-  aspect-ratio: 1;
-  border-radius: 6px;
+/* 🔒 MODAL DE AUTENTICAÇÃO (CORRIGIDO) ── */
+.auth-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 14, 20, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  position: relative;
-  cursor: pointer;
+  padding: 1rem;
+}
+
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 90, 60, 0.15);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.auth-tabs button {
+  flex: 1;
   background: transparent;
-  /* 🟢 Dias sem estudo ficam invisíveis por padrão */
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-/* ⬜ Dias passados com estudo: caixa cinza elegante combinando com o tema */
-.cal-day.studied {
-  background: var(--surface3) !important;
-  border: 1px solid var(--border) !important;
-  color: var(--text) !important;
-}
-
-/* 🟧 Dia atual (Hoje): caixa laranja do seu tema Fire */
-.cal-day.today {
-  background: var(--accent) !important;
-  color: #0A0E14 !important;
-  /* Texto escuro para contraste excelente */
-  font-weight: 700 !important;
-  box-shadow: 0 0 12px rgba(255, 90, 60, 0.3);
-}
-
-.cal-day-num {
-  font-size: 12px;
+  border: none;
+  color: var(--muted);
+  padding: 0.5rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.cal-day.empty {
-  opacity: .2;
+.auth-tabs button.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* ── CARDS & GRIDS ── */
+.card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .card-title {
@@ -181,7 +230,6 @@ body {
   margin-bottom: 1rem;
 }
 
-/* GRIDS */
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -200,11 +248,12 @@ body {
   gap: .75rem;
 }
 
-/* STAT MINI */
+/* ── STATS ── */
 .stat {
   background: var(--surface2);
   border-radius: var(--radius);
   padding: .9rem 1rem;
+  border: 1px solid var(--border);
 }
 
 .stat-label {
@@ -235,7 +284,52 @@ body {
   color: var(--coral);
 }
 
-/* PROGRESS BAR */
+/* ── CALENDÁRIO ── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.cal-day {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  position: relative;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.cal-day.studied {
+  background: var(--surface3) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+.cal-day.today {
+  background: var(--accent) !important;
+  color: #0A0E14 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 12px rgba(255, 90, 60, 0.3);
+}
+
+.cal-day-num {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cal-day.empty {
+  opacity: .2;
+}
+
+/* ── PROGRESS BAR ── */
 .progress-track {
   height: 6px;
   background: var(--surface3);
@@ -250,10 +344,11 @@ body {
   transition: width .5s ease;
 }
 
-/* BTN */
+/* ── BUTTONS ── */
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   font-family: var(--font);
   font-size: 13px;
@@ -274,14 +369,14 @@ body {
 }
 
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 18px rgba(108, 123, 255, .25);
-}
-
-.btn.primary:hover {
-  background: #5a6aee;
+  background: linear-gradient(135deg, #FF5A3C, #FFB020) !important;
+  border: none !important;
+  color: #0A0E14 !important;
+  font-family: var(--font-display) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  box-shadow: 0 0 18px rgba(255, 90, 60, 0.25);
 }
 
 .btn.sm {
@@ -298,9 +393,7 @@ body {
   background: var(--red-dim);
 }
 
-
-
-/* INPUT */
+/* ── INPUTS & SELECTS ── */
 input,
 select,
 textarea {
@@ -319,7 +412,23 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(255, 90, 60, 0.15) !important;
+}
+
+select,
+#session-mat {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-color: var(--surface2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border2) !important;
+  padding-right: 32px !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238D9AB0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  background-size: 14px !important;
 }
 
 textarea {
@@ -338,84 +447,39 @@ label {
   margin-bottom: .85rem;
 }
 
-/* 🟢 Substitua o bloco do #session-notes por este no seu style.css: */
+/* ── CADERNO DE SESSÃO ── */
 #session-notes {
   resize: none !important;
   height: auto;
   min-height: 180px;
-
-  /* 📓 Fundo Escuro Isolado */
   background-color: #141A24 !important;
-
-  /* 🎨 SVG Vetorial com altura de 56px (Alternando: uma linha sim, uma não) */
   background-image:
-    /* 1. Argolas e furos (agora com altura de 56px para pular uma linha!) */
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='56'><circle cx='32' cy='14' r='4' fill='%23232d3e'/><circle cx='32' cy='14' r='3' fill='%230a0e14'/><path d='M 6 10 C 16 2, 28 2, 32 14 C 28 26, 16 26, 6 18' fill='none' stroke='%238a99ad' stroke-width='2.5' stroke-linecap='round'/><path d='M 6 10 C 16 2, 28 2, 32 14' fill='none' stroke='%23ffffff' stroke-width='1.2' stroke-linecap='round' opacity='0.9'/></svg>"),
-    /* 2. Linha Vermelha de margem */
     linear-gradient(90deg, rgba(255, 90, 60, 0.45) 1.5px, transparent 1.5px),
-    /* 3. Linhas horizontais pautadas (mantidas a cada 28px para todas as linhas terem pauta) */
     linear-gradient(rgba(255, 255, 255, 0.08) 1.5px, transparent 1.5px) !important;
-
-  /* 📐 Tamanhos correspondentes */
-  background-size:
-    50px 56px,
-    /* 🟢 Espiral pulando uma linha (56px de altura) */
-    100% 100%,
-    /* Linha vermelha: altura total */
-    100% 28px !important;
-  /* Pautas: mantidas a cada 28px */
-
-  /* 📌 Alinhamento lateral perfeito */
-  background-position:
-    0px 0,
-    60px 0,
-    0 0 !important;
-
+  background-size: 50px 56px, 100% 100%, 100% 28px !important;
+  background-position: 0px 0, 60px 0, 0 0 !important;
   background-repeat: repeat-y, no-repeat, repeat !important;
   background-attachment: local, local, local !important;
-
-  /* ✍️ Alinhamento milimétrico do texto */
-  font-family: var(--font);
   font-size: 14px !important;
   line-height: 28px !important;
   padding: 0.5rem 1rem 0.5rem 78px !important;
   color: #F2F5F9;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  outline: none;
-  box-shadow: none !important;
 }
 
-/* BADGE */
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-family: var(--mono);
+#session-topics-list,
+#session-history {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+  padding: 1.25rem !important;
+  min-height: 220px;
+  margin-top: 0.5rem;
 }
 
-.badge.ok {
-  background: var(--green-dim);
-  color: var(--green);
-}
-
-.badge.warn {
-  background: var(--amber-dim);
-  color: var(--amber);
-}
-
-.badge.due {
-  background: var(--red-dim);
-  color: var(--red);
-}
-
-.badge.new {
-  background: var(--blue-dim);
-  color: var(--blue);
-}
-
-/* SUBJECT ROW */
+/* ── SUBJECT & TOPIC ROWS ── */
 .subject-row {
   display: flex;
   align-items: center;
@@ -450,7 +514,6 @@ label {
   color: var(--muted);
 }
 
-/* TOPIC ROW */
 .topic-row {
   display: flex;
   align-items: center;
@@ -497,144 +560,23 @@ label {
   color: var(--muted);
 }
 
-/* CALENDAR */
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-
-.cal-day {
-  aspect-ratio: 1;
-  border-radius: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  position: relative;
-  cursor: pointer;
-  transition: background .15s;
-}
-
-.cal-day-num {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.cal-day.study {
-  background: rgba(108, 123, 255, .18);
-  border: 1px solid rgba(108, 123, 255, .3);
-}
-
-.cal-day.studied {
-  background: rgba(52, 211, 153, .15);
-  border: 1px solid rgba(52, 211, 153, .25);
-}
-
-.cal-day.today {
-  background: var(--accent);
-  color: #fff;
-}
-
-.cal-day.empty {
-  opacity: .2;
-}
-
-.cal-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  margin-top: 2px;
-}
-
-/* REVIEW CARD */
-.review-card {
+.historico-card-destaque {
+  padding: .85rem;
   background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  margin-bottom: .75rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.review-icon {
-  width: 38px;
-  height: 38px;
+  border: 1px solid var(--accent);
   border-radius: var(--radius);
+  margin-bottom: .4rem;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
+  gap: .75rem;
+  align-items: flex-start;
 }
 
-.review-info {
-  flex: 1;
-}
-
-.review-title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 3px;
-}
-
-.review-sub {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-/* QUESTION */
-.q-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: .5rem;
-  margin: .75rem 0;
-}
-
-.q-option {
-  padding: .65rem .9rem;
-  border-radius: var(--radius);
-  border: 1.5px solid var(--border2);
-  background: var(--surface2);
-  cursor: pointer;
-  font-size: 13px;
-  transition: all .15s;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-
-.q-option:hover {
-  border-color: var(--accent);
-}
-
-.q-option.correct {
-  border-color: var(--green);
-  background: var(--green-dim);
-  color: var(--green);
-}
-
-.q-option.wrong {
-  border-color: var(--red);
-  background: var(--red-dim);
-  color: var(--red);
-}
-
-/* MISC */
+/* ── MISC & UTILS ── */
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1rem;
-}
-
-.section-title {
-  font-size: 15px;
-  font-weight: 600;
 }
 
 .panel {
@@ -672,7 +614,7 @@ label {
   border-radius: 99px;
 }
 
-/* POMODORO */
+/* ── POMODORO ── */
 .pomo-circle {
   width: 160px;
   height: 160px;
@@ -707,10 +649,6 @@ label {
   .grid-4 {
     grid-template-columns: 1fr 1fr;
   }
-
-  .q-options {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 480px) {
@@ -728,149 +666,4 @@ label {
   .page {
     padding: 1rem .75rem;
   }
-}
-
-/* ── Titles com Oswald (display) — tema app de treino ── */
-h1,
-h2,
-h3,
-.timer-val,
-.stat-val,
-.big-number,
-.subject-name,
-.card-title,
-.section-title,
-.hero-title,
-.page-title,
-.modal-title,
-.tab-label,
-.level-name {
-  font-family: 'Oswald', sans-serif;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-}
-
-/* body/labels mantém Inter */
-body,
-p,
-span,
-label,
-input,
-textarea,
-select,
-button,
-li,
-td,
-th {
-  font-family: 'Inter', sans-serif;
-}
-
-code,
-pre,
-.mono,
-[class*="mono"],
-[class*="code"],
-.timer-clock,
-.streak-val,
-.xp-val {
-  font-family: 'JetBrains Mono', monospace;
-}
-
-/* ── Accent fire nos elementos interativos ── */
-::-webkit-scrollbar-thumb {
-  background: #2A3444;
-}
-
-/* Botões primários → fire */
-.btn-primary,
-.btn-accent,
-[class*="btn-primary"] {
-  background: linear-gradient(135deg, #FF5A3C, #FFB020) !important;
-  border: none !important;
-  color: #0A0E14 !important;
-  font-family: 'Oswald', sans-serif !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.04em !important;
-  text-transform: uppercase !important;
-}
-
-/* Bordas de foco → fire */
-input:focus,
-textarea:focus,
-select:focus {
-  border-color: #FF5A3C !important;
-  box-shadow: 0 0 0 3px rgba(255, 90, 60, 0.15) !important;
-}
-
-/* Links/destaques inline → fire */
-a {
-  color: #FF5A3C;
-}
-
-a:hover {
-  color: #FFB020;
-}
-
-
-/* 1. Força o Combobox (Dropdown) a perder o visual antigo e nativo do Mac */
-select,
-#session-mat {
-  -webkit-appearance: none !important;
-  /* Remove o estilo padrão do Safari/Chrome no Mac */
-  -moz-appearance: none !important;
-  /* Remove no Firefox */
-  appearance: none !important;
-  /* Padrão moderno */
-
-  /* Mantém as suas cores e adiciona espaçamento para a nova seta */
-  background-color: var(--surface2) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border2) !important;
-  padding-right: 32px !important;
-
-  /* Injeta uma setinha estilizada e moderna em formato SVG */
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238D9AB0' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") !important;
-  background-repeat: no-repeat !important;
-  background-position: right 12px center !important;
-  background-size: 14px !important;
-}
-
-/* 2. Cria as caixas de fundo para as colunas da "Aba Hoje" que estavam transparentes */
-#session-topics-list,
-#session-history {
-  background: var(--surface) !important;
-  /* Usa o cinza escuro do seu app */
-  border: 1px solid var(--border) !important;
-  /* Adiciona a bordinha sutil */
-  border-radius: var(--radius-lg) !important;
-  /* Arredonda os cantos como nos outros cards */
-  padding: 1.25rem !important;
-  /* Dá espaçamento interno para os itens não colarem na borda */
-  min-height: 220px;
-  /* Garante um tamanho mínimo bonito */
-  margin-top: 0.5rem;
-}
-
-/* Se a mensagem de "Nenhuma sessão registrada" ou "Selecione uma matéria" aparecer, ela herda o estilo */
-#session-topics-list .empty,
-#session-history .empty {
-  background: transparent !important;
-  padding: 2rem 1rem !important;
-}
-/* 🔄 Estado do botão quando estiver em modo "Atualizar anotação" */
-.btn-update {
-  background-color: var(--accent) !important;
-  color: #ffffff !important;
-}
-
-/* 🗂️ Card em destaque no histórico ao selecionar um assunto */
-.historico-card-destaque {
-  padding: .85rem;
-  background: var(--surface2);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  margin-bottom: .4rem;
-  display: flex;
-  gap: .75rem;
-  align-items: flex-start;
 }

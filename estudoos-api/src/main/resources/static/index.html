@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Estudando — Concurso Público</title>
+  <title>Estudando — Concurso Público 🧠</title>
   <link
     href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
     rel="stylesheet">
@@ -13,6 +13,7 @@
 
 <body>
 
+  <!-- ═══ BARRA DE NAVEGAÇÃO ═══ -->
   <div class="nav">
     <div class="logo">Estudo<span>OS</span></div>
     <div class="tab active" onclick="showPage('dashboard')">📊 Painel</div>
@@ -21,13 +22,66 @@
     <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
     <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
     <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+
+    <!-- 🟢 USUÁRIO & BOTÃO DE LOGOUT -->
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem;">
+      <span id="user-display" style="font-size: 0.85rem; color: var(--muted); font-weight: 600;"></span>
+      <button class="btn sm" onclick="fazerLogout()"
+        style="background: var(--surface2); border: 1px solid var(--border);">🚪 Sair</button>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL DE AUTENTICAÇÃO (LOGIN / CADASTRO) ═══ -->
+  <div id="auth-modal" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button id="btn-tab-login" class="active" onclick="alternarAbaAuth('login')">Entrar 🔑</button>
+        <button id="btn-tab-registro" onclick="alternarAbaAuth('registro')">Cadastrar 📝</button>
+      </div>
+
+      <!-- Form Login -->
+      <form id="form-login" onsubmit="realizarLogin(event);">
+        <h3 style="margin-bottom: 1rem;">Bem-vindo de volta! 🚀</h3>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" required />
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="******" required />
+        </div>
+        <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem;">Entrar no Sistema</button>
+      </form>
+
+      <!-- Form Registro -->
+      <form id="form-registro" style="display: none;" onsubmit="realizarRegistro(event);">
+        <h3 style="margin-bottom: 1rem;">Criar sua Conta 🎯</h3>
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input type="text" id="reg-nome" placeholder="Seu nome" required />
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="reg-email" placeholder="seu@email.com" required />
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="reg-senha" placeholder="******" required />
+        </div>
+        <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem; background: var(--green);">Criar
+          Conta</button>
+      </form>
+
+      <div id="msg-auth-erro" style="color: var(--coral); font-size: 0.85rem; margin-top: 1rem; text-align: center;">
+      </div>
+    </div>
   </div>
 
   <!-- ═══ DASHBOARD ═══ -->
   <div id="page-dashboard" class="page active">
     <div class="section-header" style="margin-bottom:1.25rem;">
       <div>
-        <div style="font-size:20px;font-weight:700;">Bom estudo, André! 👋</div>
+        <div style="font-size:20px;font-weight:700;" id="dash-greeting">Bom estudo! 👋</div>
         <div style="font-size:13px;color:var(--muted);margin-top:2px;" id="dash-date"></div>
       </div>
       <button class="btn primary" onclick="showPage('hoje')">Ver sessão de hoje →</button>
@@ -87,7 +141,6 @@
       </div>
     </div>
 
-    <!-- PAINEL DE ADICIONAR / EDITAR MATÉRIA COM NOVOS ASSUNTOS -->
     <div id="materias-panel" style="display:none;" class="panel">
       <input type="hidden" id="mat-id-edit" value="" />
       <div class="form-group">
@@ -105,7 +158,6 @@
       </div>
     </div>
 
-    <!-- PAINEL EDITIONS DE ASSUNTO INDIVIDUAL (EDITION MODAL) -->
     <div id="topico-panel" style="display:none;" class="panel">
       <input type="hidden" id="topico-id-edit" value="" />
       <div class="form-group">
@@ -118,7 +170,6 @@
       </div>
     </div>
 
-    <!-- LISTA DE MATÉRIAS E ASSUNTOS -->
     <div id="materias-list">
       <div class="empty">
         <div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda
@@ -139,8 +190,6 @@
     </div>
 
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-
-      <!-- ASSUNTOS DA SESSÃO -->
       <div class="card" style="display: flex; flex-direction: column; height: 350px;">
         <h3
           style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
@@ -152,7 +201,6 @@
         </div>
       </div>
 
-      <!-- HISTÓRICO DE SESSÕES -->
       <div class="card" style="display: flex; flex-direction: column; height: 350px;">
         <h3
           style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
@@ -163,10 +211,8 @@
           </div>
         </div>
       </div>
-
     </div>
 
-    <!-- CAMPO DE NOTAS INFERIOR -->
     <div class="card" style="height: auto; margin-top: 1rem;">
       <h3
         style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
@@ -210,7 +256,6 @@
 
     <div class="card">
       <div class="card-title">Fila de revisão</div>
-      <!-- 🟢 ID AJUSTADO DE "review-list" PARA "rev-queue" -->
       <div id="rev-queue">
         <div class="empty">
           <div class="empty-icon">🔁</div>Nenhuma revisão pendente — continue estudando!
@@ -328,7 +373,10 @@
     </div>
   </div>
 
-  <script src="script.js"></script>
+  <!-- 🟢 OS TRES SCRIPTS NA ORDEM CORRETA DE CARREGAMENTO -->
+  <script src="./api.js"></script>
+  <script src="./auth.js"></script>
+  <script src="./script.js"></script>
 </body>
 
 </html>
