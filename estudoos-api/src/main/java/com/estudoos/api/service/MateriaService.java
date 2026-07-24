@@ -14,6 +14,7 @@ import com.estudoos.api.repository.MateriaRepository;
 import com.estudoos.api.repository.RevisaoRepository;
 import com.estudoos.api.repository.SessaoEstudoRepository;
 import com.estudoos.api.repository.TopicoRepository;
+import com.estudoos.api.repository.UsuarioRepository;
 
 @Service
 public class MateriaService {
@@ -22,28 +23,32 @@ public class MateriaService {
     private final TopicoRepository topicoRepository;
     private final RevisaoRepository revisaoRepository;
     private final SessaoEstudoRepository sessaoEstudoRepository;
+    private final UsuarioRepository usuarioRepository; // 🟢 Injeção do repositório de usuário
 
     public MateriaService(MateriaRepository materiaRepository, 
                           TopicoRepository topicoRepository,
                           RevisaoRepository revisaoRepository,
-                          SessaoEstudoRepository sessaoEstudoRepository) {
+                          SessaoEstudoRepository sessaoEstudoRepository,
+                          UsuarioRepository usuarioRepository) {
         this.materiaRepository = materiaRepository;
         this.topicoRepository = topicoRepository;
         this.revisaoRepository = revisaoRepository;
         this.sessaoEstudoRepository = sessaoEstudoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
-    // 🟢 1. Salva a matéria vinculando explicitamente ao Usuário logado
+    // 🟢 1. Salva a matéria buscando o Usuário logado pelo e-mail do JWT
     @Transactional
-    public MateriaDTO salvarMateriaComEdital(MateriaDTO dto, Usuario usuarioLogado) {
-        // Cria e salva a entidade principal da Matéria vinculada ao usuário
+    public MateriaDTO salvarMateriaComEditalPorEmail(MateriaDTO dto, String email) {
+        Usuario usuarioLogado = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com o e-mail: " + email));
+
         Materia materia = new Materia();
         materia.setNome(dto.nome());
         materia.setCor(dto.cor());
-        materia.setUsuario(usuarioLogado); // 🔒 Vincula o usuário!
+        materia.setUsuario(usuarioLogado); // 🔒 Vincula o usuário logado real!
         materia = materiaRepository.save(materia);
 
-        // Transforma cada linha do edital em um registro na tabela Topico
         List<String> nomesTopicos = dto.topicos();
         if (nomesTopicos != null && !nomesTopicos.isEmpty()) {
             for (String nomeTopico : nomesTopicos) {
@@ -58,24 +63,35 @@ public class MateriaService {
         return new MateriaDTO(materia.getId(), materia.getNome(), materia.getCor(), null);
     }
 
-    // 🟢 2. Lista APENAS as matérias do usuário logado
-    public List<Materia> listarPorUsuario(Long usuarioId) {
-        return materiaRepository.findByUsuarioId(usuarioId);
+    // 🟢 2. Lista APENAS as matérias do usuário logado buscando pelo e-mail do JWT
+    public List<Materia> listarPorEmailUsuario(String email) {
+        Usuario usuarioLogado = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com o e-mail: " + email));
+
+        return materiaRepository.findByUsuarioId(usuarioLogado.getId());
     }
 
-    // ✏️ 3. Atualiza a matéria garantindo que ela pertence ao usuário
+    // ✏️ 3. Atualiza a matéria garantindo que ela pertence ao usuário logado
     @Transactional
-    public Materia atualizarMateria(Long id, String novoNome, Long usuarioId) {
-        Materia materia = materiaRepository.findByIdAndUsuarioId(id, usuarioId)
+    public Materia atualizarMateriaPorEmail(Long id, String novoNome, String email) {
+        Usuario usuarioLogado = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com o e-mail: " + email));
+
+        Materia materia = materiaRepository.findByIdAndUsuarioId(id, usuarioLogado.getId())
                 .orElseThrow(() -> new RuntimeException("Matéria não encontrada ou não pertence ao usuário com ID: " + id));
         
         materia.setNome(novoNome.trim());
         return materiaRepository.save(materia);
     }
 
-    // 🗑️ 4. Exclui a matéria e a árvore garantindo que pertencem ao usuário
+    // 🗑️ 4. Exclui a matéria garantindo que pertence ao usuário logado
     @Transactional
-    public void deletarMateria(Long id, Long usuarioId) {
+    public void deletarMateriaPorEmail(Long id, String email) {
+        Usuario usuarioLogado = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado com o e-mail: " + email));
+
+        Long usuarioId = usuarioLogado.getId();
+
         if (!materiaRepository.existsByIdAndUsuarioId(id, usuarioId)) {
             throw new RuntimeException("Matéria não encontrada ou acesso negado para ID: " + id);
         }
@@ -92,7 +108,6 @@ public class MateriaService {
         }
 
         topicoRepository.deleteAll(topicos);
-
         materiaRepository.deleteById(id);
     }
 }
