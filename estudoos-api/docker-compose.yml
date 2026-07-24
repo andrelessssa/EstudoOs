@@ -1,5 +1,5 @@
 services:
-  # 🗄️ Serviço do Banco de Dados PostgreSQL
+  # 🗄️ Serviço do Banco de Dados PostgreSQL (Porta externa 5434)
   postgres-db:
     image: postgres:16-alpine
     container_name: estudoos-postgres
@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
     ports:
-      - "5432:5432"
+      - "5434:5432" # 🟢 Alterado de 5432 para 5434 para não conflitar com a ARSAL nem Chamados!
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -19,7 +19,7 @@ services:
     container_name: estudoos-api
     restart: always
     ports:
-      - "8083:8083"
+      - "8083:8083" # 🟢 A porta 8083 está livre no seu Docker (já que arsal usa 8080/80 e chamados usa 8081)
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/estudoos
       SPRING_DATASOURCE_USERNAME: postgres
@@ -30,4 +30,3 @@ services:
 
 volumes:
   postgres_data:
-  
