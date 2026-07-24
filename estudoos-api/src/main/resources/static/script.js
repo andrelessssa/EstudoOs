@@ -9,6 +9,20 @@ let modoEdicao = false;
 let sessaoEmEdicaoId = null;
 let dataAtivaSessao = today();
 
+// ─── AUXILIAR PARA TOKEN ──────────────────────────────────────────────────────
+function getAuthToken() {
+  return localStorage.getItem('token') || localStorage.getItem('estudoos_token');
+}
+
+// ─── LOGOUT COMPLETO DA APLICAÇÃO ─────────────────────────────────────────────
+function fazerLogout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('estudoos_token');
+  localStorage.removeItem('estudoos_usuario');
+  localStorage.clear();
+  window.location.reload();
+}
+
 // ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -56,7 +70,7 @@ function dateStr(d) {
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 async function renderDashboard() {
-  if (!localStorage.getItem('estudoos_token')) return;
+  if (!getAuthToken()) return;
 
   const dashDateEl = document.getElementById('dash-date');
   if (dashDateEl) {
@@ -186,7 +200,7 @@ async function irParaDataEspecifica(dataSelecionada) {
 
 // ─── REVISÃO ESPAÇADA & FILA ─────────────────────────────────────────────────
 async function renderRevisao() {
-  if (!localStorage.getItem('estudoos_token')) return;
+  if (!getAuthToken()) return;
 
   const elFila = document.getElementById('rev-queue') || document.getElementById('revisoes-list');
 
@@ -439,7 +453,7 @@ async function saveSession() {
 
 // ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
 async function renderHoje() {
-  if (!localStorage.getItem('estudoos_token')) return;
+  if (!getAuthToken()) return;
 
   const sel = document.getElementById('session-mat');
   if (!sel) return;
@@ -781,7 +795,7 @@ function alternarModoEdicao() {
 }
 
 async function renderMaterias() {
-  if (!localStorage.getItem('estudoos_token')) return;
+  if (!getAuthToken()) return;
 
   const el = document.getElementById('materias-list');
   if (!el) return;
@@ -1058,8 +1072,8 @@ function updatePomoDisplay() {
 
 // ─── CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO ────────────────────────────────
 function verificarAutenticacaoEInicializar() {
-  const token = localStorage.getItem('estudoos_token');
-  const usuarioRaw = localStorage.getItem('estudoos_usuario');
+  const token = getAuthToken();
+  const usuarioRaw = localStorage.getItem('usuario') || localStorage.getItem('estudoos_usuario');
   const authModal = document.getElementById('auth-modal');
 
   if (!token) {
