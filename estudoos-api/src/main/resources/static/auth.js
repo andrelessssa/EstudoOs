@@ -46,23 +46,27 @@ async function realizarLogin(event) {
 
         const data = await response.json();
 
-        // 💾 Salva o Token e dados do Usuário no navegador
+        // 💾 Salva o Token e dados do Usuário (em AMBAS as chaves para garantir 100%)
         if (data.token) {
-            localStorage.setItem('estudoos_token', data.token);
-            localStorage.setItem('estudoos_usuario', JSON.stringify({ nome: data.nome || 'Usuário', email: data.email || email }));
+            // 🧹 Limpa resíduos de logins antigos
+            localStorage.clear();
 
-            // 🧹 Limpa o formulário de login
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('estudoos_token', data.token);
+            
+            const objUsuario = JSON.stringify({ nome: data.nome || 'Usuário', email: data.email || email });
+            localStorage.setItem('usuario', objUsuario);
+            localStorage.setItem('estudoos_usuario', objUsuario);
+
             const formLogin = document.getElementById('form-login');
             if (formLogin) formLogin.reset();
             if (msgErro) msgErro.innerText = '';
 
-            // 🚀 Esconde a modal e inicializa a aplicação
             const authModal = document.getElementById('auth-modal');
             if (authModal) authModal.style.display = 'none';
 
-            if (typeof verificarAutenticacaoEInicializar === 'function') {
-                verificarAutenticacaoEInicializar();
-            }
+            // 🚀 Recarrega a página para reiniciar os estados limpos
+            window.location.reload();
         } else {
             throw new Error('Token não retornado pelo servidor.');
         }
@@ -99,23 +103,24 @@ async function realizarRegistro(event) {
 
         const data = await response.json();
 
-        // 💾 Salva o Token e dados do Usuário no navegador
         if (data.token) {
-            localStorage.setItem('estudoos_token', data.token);
-            localStorage.setItem('estudoos_usuario', JSON.stringify({ nome: data.nome || nome, email: data.email || email }));
+            localStorage.clear();
 
-            // 🧹 Limpa o formulário de registro
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('estudoos_token', data.token);
+            
+            const objUsuario = JSON.stringify({ nome: data.nome || nome, email: data.email || email });
+            localStorage.setItem('usuario', objUsuario);
+            localStorage.setItem('estudoos_usuario', objUsuario);
+
             const formRegistro = document.getElementById('form-registro');
             if (formRegistro) formRegistro.reset();
             if (msgErro) msgErro.innerText = '';
 
-            // 🚀 Esconde a modal e inicializa a aplicação
             const authModal = document.getElementById('auth-modal');
             if (authModal) authModal.style.display = 'none';
 
-            if (typeof verificarAutenticacaoEInicializar === 'function') {
-                verificarAutenticacaoEInicializar();
-            }
+            window.location.reload();
         } else {
             throw new Error('Token não retornado pelo servidor.');
         }
