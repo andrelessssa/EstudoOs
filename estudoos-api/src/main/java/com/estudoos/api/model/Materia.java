@@ -1,7 +1,11 @@
 package com.estudoos.api.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,6 +14,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -37,4 +42,9 @@ public class Materia {
     @JoinColumn(name = "usuario_id", nullable = true)
     @JsonIgnoreProperties({"senha", "hibernateLazyInitializer", "handler"})
     private Usuario usuario;
+
+    // 🔴 MAPEAMENTO CORRETO: Apaga todos os Tópicos associados automaticamente
+    @OneToMany(mappedBy = "materia", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"materia", "hibernateLazyInitializer", "handler"})
+    private List<Topico> topicos = new ArrayList<>();
 }

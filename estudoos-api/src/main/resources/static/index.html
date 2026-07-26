@@ -31,7 +31,7 @@
     </div>
   </div>
 
-  <!-- ═══ MODAL DE AUTENTICAÇÃO (LOGIN / CADASTRO) ═══ -->
+  <!-- ═══ MODAL DE AUTENTICAÇÃO (LOGIN / CADASTRO FIXO) ═══ -->
   <div id="auth-modal" class="auth-overlay" style="display: none;">
     <div class="auth-card">
       <div class="auth-tabs">
@@ -115,9 +115,9 @@
           </div>
         </div>
       </div>
-      <div class="card">
+      <div class="card" style="overflow: visible;">
         <div class="card-title" id="cal-title">Calendário</div>
-        <div id="dash-calendar"></div>
+        <div id="dash-calendar" class="cal-container"></div>
       </div>
     </div>
 
@@ -217,7 +217,6 @@
       <h3
         style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
         Notas Rápidas da Sessão</h3>
-
       <textarea id="session-notes" placeholder="Anote pontos importantes, dúvidas, lembretes..."
         oninput="autoGrowNotes(this)"
         style="width: 100%; min-height: 180px; overflow-y: hidden; resize: none; margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: inherit; line-height: 1.6;"></textarea>
@@ -373,7 +372,7 @@
     </div>
   </div>
 
-  <!-- 🟢 OS TRES SCRIPTS NA ORDEM CORRETA DE CARREGAMENTO -->
+  <!-- 🟢 SCRIPTS -->
   <script src="./api.js"></script>
   <script src="./auth.js"></script>
   <script src="./script.js"></script>
