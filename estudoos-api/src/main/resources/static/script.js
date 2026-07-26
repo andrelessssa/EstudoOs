@@ -1044,7 +1044,7 @@ async function deleteTopico(idTopico) {
   }
 }
 
-// ─── QUESTÕES & POMODORO ──────────────────────────────────────────────────────
+// ─── QUESTÕES ─────────────────────────────────────────────────────────────────
 function openAddQuestion() {
   const panel = document.getElementById('question-panel');
   if (panel) panel.style.display = 'block';
@@ -1059,15 +1059,130 @@ function renderQuestoes() {
   state.questions = JSON.parse(localStorage.getItem('studyos_v2_questions') || '[]');
 }
 
+// ─── POMODORO ─────────────────────────────────────────────────────────────────
 const POMO_MODES = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
 let pomoTimer = null;
-let pomoSeconds = 25 * 60;
+let pomoMode = 'work';
+let pomoSeconds = POMO_MODES.work;
+let pomoRunning = false;
+let pomoCompletedCount = 0;
 
 function updatePomoDisplay() {
   const m = String(Math.floor(pomoSeconds / 60)).padStart(2, '0');
   const s = String(pomoSeconds % 60).padStart(2, '0');
+
   const disp = document.getElementById('pomo-display');
   if (disp) disp.textContent = `${m}:${s}`;
+
+  document.title = `${m}:${s} - Estudando 🧠`;
+}
+
+function setPomoMode(mode) {
+  if (!POMO_MODES[mode]) return;
+
+  pomoMode = mode;
+  pomoSeconds = POMO_MODES[mode];
+
+  if (pomoRunning) {
+    clearInterval(pomoTimer);
+    pomoRunning = false;
+  }
+
+  const btn = document.getElementById('pomo-btn');
+  if (btn) btn.innerHTML = '▶ Iniciar';
+
+  const label = document.getElementById('pomo-label');
+  if (label) {
+    if (mode === 'work') label.textContent = 'FOCO';
+    else if (mode === 'short') label.textContent = 'PAUSA CURTA';
+    else if (mode === 'long') label.textContent = 'PAUSA LONGA';
+  }
+
+  const btnWork = document.getElementById('pomo-mode-work');
+  const btnShort = document.getElementById('pomo-mode-short');
+  const btnLong = document.getElementById('pomo-mode-long');
+
+  if (btnWork) btnWork.style.borderColor = mode === 'work' ? 'var(--accent)' : 'var(--border2)';
+  if (btnShort) btnShort.style.borderColor = mode === 'short' ? 'var(--accent)' : 'var(--border2)';
+  if (btnLong) btnLong.style.borderColor = mode === 'long' ? 'var(--accent)' : 'var(--border2)';
+
+  updatePomoDisplay();
+}
+
+function togglePomo() {
+  const btn = document.getElementById('pomo-btn');
+
+  if (pomoRunning) {
+    clearInterval(pomoTimer);
+    pomoRunning = false;
+    if (btn) btn.innerHTML = '▶ Continuar';
+  } else {
+    pomoRunning = true;
+    if (btn) btn.innerHTML = '⏸ Pausar';
+
+    pomoTimer = setInterval(() => {
+      if (pomoSeconds > 0) {
+        pomoSeconds--;
+        updatePomoDisplay();
+      } else {
+        clearInterval(pomoTimer);
+        pomoRunning = false;
+        finalizarCicloPomodoro();
+      }
+    }, 1000);
+  }
+}
+
+function resetPomo() {
+  if (pomoTimer) clearInterval(pomoTimer);
+  pomoRunning = false;
+  pomoSeconds = POMO_MODES[pomoMode];
+
+  const btn = document.getElementById('pomo-btn');
+  if (btn) btn.innerHTML = '▶ Iniciar';
+
+  updatePomoDisplay();
+}
+
+async function finalizarCicloPomodoro() {
+  tocarAlarmeFimCiclo();
+
+  const btn = document.getElementById('pomo-btn');
+  if (btn) btn.innerHTML = '▶ Iniciar';
+
+  if (pomoMode === 'work') {
+    pomoCompletedCount++;
+
+    const countEl = document.getElementById('pomo-count');
+    if (countEl) countEl.textContent = pomoCompletedCount;
+
+    alert("🎉 Parabéns! Ciclo de foco de 25 minutos concluído! Hora de descansar 5 minutos.");
+
+    setPomoMode('short');
+  } else {
+    alert("☕ Pausa finalizada! Pronto para o próximo ciclo de foco?");
+    setPomoMode('work');
+  }
+}
+
+function tocarAlarmeFimCiclo() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 1.2);
+  } catch (e) {
+    console.log("Audio API não suportada ou bloqueada pelo navegador.");
+  }
 }
 
 // ─── CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO ────────────────────────────────
