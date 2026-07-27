@@ -17,8 +17,8 @@ async function realizarLogin(event) {
             msgErro.innerText = 'Autenticando... ⏳';
         }
 
-        // Utiliza fetch normal para não enviar token antigo no header do login
-        const response = await fetch('/auth/login', {
+        // 🎯 Usa o utilitário padrão com a URL Base configurada no api.js
+        const response = await fetchComAuth('/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, senha })
@@ -29,8 +29,6 @@ async function realizarLogin(event) {
         }
 
         const data = await response.json();
-
-        // Aceita 'token' ou 'jwt' conforme o retorno do Spring Boot
         const tokenRecebido = data.token || data.jwt || data.tokenAcesso;
 
         if (tokenRecebido) {
@@ -40,11 +38,15 @@ async function realizarLogin(event) {
             localStorage.setItem('token', tokenRecebido);
             localStorage.setItem('estudoos_token', tokenRecebido);
 
-            // 💾 Salva os dados do usuário com fallback de segurança
+            // 🔒 Define ADMIN estritamente para o seu e-mail principal ou se o backend retornar ADMIN
+            const EMAIL_ADMIN = 'andrelessa013@gmail.com';
+            const isUsuarioAdmin = email.toLowerCase() === EMAIL_ADMIN.toLowerCase() || data.role === 'ADMIN';
+
+            // 💾 Salva os dados do usuário com a role definida
             const objUsuario = JSON.stringify({
                 nome: data.nome || email.split('@')[0],
                 email: data.email || email,
-                role: data.role || (email.toLowerCase() === 'outrousuario@gmail.com' ? 'USER' : 'ADMIN')
+                role: isUsuarioAdmin ? 'ADMIN' : 'USER'
             });
 
             localStorage.setItem('usuario', objUsuario);
@@ -117,7 +119,7 @@ async function criarNovoUsuarioAdmin(event) {
     }
 }
 
-// 🛡️ Controle de Exibição por Permissões (Visual apenas)
+// 🛡️ Controle de Exibição de Telas por Permissão
 function aplicarControleAcesso() {
     const usuarioSalvo = localStorage.getItem('usuario') || localStorage.getItem('estudoos_usuario');
 
@@ -126,7 +128,8 @@ function aplicarControleAcesso() {
     try {
         const usuario = JSON.parse(usuarioSalvo);
 
-        const cardCadastroAdmin = document.getElementById('card-cadastrar-usuario');
+        const cardCadastroAdmin = document.getElementById('card-cadastrar-usuario') || 
+                                  document.querySelector('#page-perfil .card:first-child');
         const tabPerfilNav = document.getElementById('tab-perfil');
 
         // Exibe os dados no Perfil
@@ -135,9 +138,12 @@ function aplicarControleAcesso() {
         if (elNome) elNome.innerText = usuario.nome || '—';
         if (elEmail) elEmail.innerText = usuario.email || '—';
 
-        // 🔒 Define quem é ADMIN
-        const isOutroUsuario = usuario.email && usuario.email.toLowerCase() === 'outrousuario@gmail.com';
-        const ehAdmin = !isOutroUsuario && (usuario.role === 'ADMIN' || usuario.role === 'ROLE_ADMIN' || !usuario.role);
+        // 🔒 Regra de Ouro: Apenas o seu e-mail é considerado ADMIN do sistema
+        const EMAIL_ADMIN = 'andrelessa013@gmail.com';
+        const ehAdmin = usuario.email && (
+            usuario.email.trim().toLowerCase() === EMAIL_ADMIN.toLowerCase() || 
+            usuario.role === 'ADMIN'
+        );
 
         // Oculta/Exibe o card interno de cadastro
         if (cardCadastroAdmin) {

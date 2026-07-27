@@ -6,7 +6,8 @@ if (typeof API_BASE_URL === 'undefined') {
 
 // 🛡️ Função utilitária central de requisições com JWT
 async function fetchComAuth(endpoint, options = {}) {
-    const token = localStorage.getItem('estudoos_token');
+    // Busca o token em ambas as chaves para garantir compatibilidade
+    const token = localStorage.getItem('token') || localStorage.getItem('estudoos_token');
 
     // 🛑 SE NÃO HOUVER TOKEN E NÃO FOR ROTA DE AUTH, CANCELA A CHAMADA IMEDIATAMENTE!
     if (!token && !endpoint.includes('/auth')) {
@@ -38,10 +39,12 @@ async function fetchComAuth(endpoint, options = {}) {
     try {
         const response = await fetch(`${window.API_BASE_URL}${endpoint}`, config);
 
-        // 🔴 Se o token expirou ou é inválido no servidor
+        // 🔴 Se o token expirou ou é inválido no servidor (401 ou 403)
         if (response.status === 401 || response.status === 403) {
             if (!endpoint.includes('/auth')) {
+                localStorage.removeItem('token');
                 localStorage.removeItem('estudoos_token');
+                localStorage.removeItem('usuario');
                 localStorage.removeItem('estudoos_usuario');
 
                 const authModal = document.getElementById('auth-modal');
@@ -58,7 +61,9 @@ async function fetchComAuth(endpoint, options = {}) {
 
 // 🚪 Processa o Logout zerando o armazenamento e recarregando a tela limpa
 function fazerLogout() {
+    localStorage.removeItem('token');
     localStorage.removeItem('estudoos_token');
+    localStorage.removeItem('usuario');
     localStorage.removeItem('estudoos_usuario');
     localStorage.clear();
 

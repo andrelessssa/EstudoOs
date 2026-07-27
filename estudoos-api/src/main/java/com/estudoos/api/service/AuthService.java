@@ -39,8 +39,8 @@ public class AuthService {
 
         String token = tokenProvider.gerarToken(usuario.getEmail(), usuario.getId());
         
-        // Retorna incluindo a role do usuário registrado
-        String userRole = usuario.getRole() != null ? usuario.getRole() : "USER";
+        // Todo usuário registrado via painel inicia como USER
+        String userRole = "USER"; 
         return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail(), userRole);
     }
 
@@ -54,8 +54,9 @@ public class AuthService {
 
         String token = tokenProvider.gerarToken(usuario.getEmail(), usuario.getId());
 
-        // Se a model Usuario ainda não tiver o campo role, defina uma lógica (ex: email principal é ADMIN)
-        String userRole = usuario.getRole() != null ? usuario.getRole() : "ADMIN";
+        // 🔒 Regra de permissão: Apenas o seu e-mail principal recebe ADMIN
+        String emailAdmin = "andrelessa013@gmail.com";
+        String userRole = emailAdmin.equalsIgnoreCase(usuario.getEmail()) ? "ADMIN" : "USER";
 
         return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail(), userRole);
     }

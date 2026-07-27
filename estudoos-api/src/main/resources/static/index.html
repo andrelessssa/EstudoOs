@@ -22,8 +22,8 @@
     <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
     <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
     <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
-    <!-- 🟢 ID adicionado aqui para controle via JS -->
-    <div class="tab" id="tab-perfil" onclick="showPage('perfil')">👤 Meu Perfil</div>
+    <!-- 🟢 Aba alterada para "Cadastrar" -->
+    <div class="tab" id="tab-perfil" onclick="showPage('perfil')">👤 Cadastrar</div>
 
     <!-- 🟢 USUÁRIO & BOTÃO DE LOGOUT -->
     <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem;">
@@ -33,12 +33,12 @@
     </div>
   </div>
 
-  <!-- ═══ MODAL DE AUTENTICAÇÃO (APENAS LOGIN PÚBLICO) ═══ -->
+  <!-- ═══ MODAL DE AUTENTICAÇÃO (LOGIN PÚBLICO SEGUNDO DESIGN) ═══ -->
   <div id="auth-modal" class="auth-overlay" style="display: none;">
     <div class="auth-card">
       <div style="text-align: center; margin-bottom: 1.5rem;">
         <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Estudo<span style="color: var(--accent);">OS</span></h2>
-        <p style="color: var(--muted); font-size: 0.85rem;">Acesso Restrito</p>
+        <!-- 🟢 Texto "Acesso Restrito" removido daqui -->
       </div>
 
       <!-- Form Login -->
@@ -355,10 +355,10 @@
     </div>
   </div>
 
-  <!-- ═══ MEU PERFIL & CADASTRO DE USUÁRIOS (ADMIN) ═══ -->
+  <!-- ═══ CADASTRO DE USUÁRIOS (ADMIN EXCLUSIVO) ═══ -->
   <div id="page-perfil" class="page">
     <div class="section-header">
-      <div class="section-title">Meu Perfil &amp; Administração</div>
+      <div class="section-title">Administração</div>
       <div style="font-size:12px;color:var(--muted);">Gestão interna do sistema</div>
     </div>
 
