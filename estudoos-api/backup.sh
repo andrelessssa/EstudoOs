@@ -1,49 +1,34 @@
 #!/bin/bash
 
-# ── Credenciais do application.properties ──
+# ── Configurações do Banco no Docker ──
+# Nome do container onde o PostgreSQL está rodando
+CONTAINER_NAME="estudoos-db"  # Ajuste com o nome do seu container no docker-compose.yml
 POSTGRES_USER="postgres"
-POSTGRES_PASSWORD="satell1tE"
 POSTGRES_DB="estudoos"
-HOST="localhost"
-PORT="5432"
 
-# ── Configuração de Diretório ──
+# ── Configuração de Diretório e Retenção ──
 BACKUP_DIR="./backups"
 RETENTION_DAYS=7
 
-# ── Localiza o pg_dump na instalação do PostgreSQL no Mac ──
-PG_DUMP_PATH=""
-
-if command -v pg_dump &> /dev/null; then
-  PG_DUMP_PATH="pg_dump"
-elif [ -f "/Library/PostgreSQL/18/bin/pg_dump" ]; then
-  PG_DUMP_PATH="/Library/PostgreSQL/18/bin/pg_dump"
-elif [ -f "/Library/PostgreSQL/17/bin/pg_dump" ]; then
-  PG_DUMP_PATH="/Library/PostgreSQL/17/bin/pg_dump"
-elif [ -f "/Library/PostgreSQL/16/bin/pg_dump" ]; then
-  PG_DUMP_PATH="/Library/PostgreSQL/16/bin/pg_dump"
-elif [ -f "/Applications/Postgres.app/Contents/Versions/latest/bin/pg_dump" ]; then
-  PG_DUMP_PATH="/Applications/Postgres.app/Contents/Versions/latest/bin/pg_dump"
-fi
-
-if [ -z "$PG_DUMP_PATH" ]; then
-  echo "❌ pg_dump não encontrado. Verifique o caminho da instalação do PostgreSQL."
-  exit 1
-fi
-
+# Cria a pasta de backups se ela não existir
 mkdir -p $BACKUP_DIR
 
+# Nome do arquivo formatado com data e hora
 FILE_NAME="backup_${POSTGRES_DB}_$(date +%Y%m%d_%H%M%S).sql"
 FILE_PATH="${BACKUP_DIR}/${FILE_NAME}"
 
-echo "📦 Iniciando backup do banco '${POSTGRES_DB}' local..."
+echo "📦 [VPS] Iniciando backup do banco '${POSTGRES_DB}' via Docker..."
 
-PGPASSWORD="${POSTGRES_PASSWORD}" "$PG_DUMP_PATH" -h ${HOST} -p ${PORT} -U ${POSTGRES_USER} -d ${POSTGRES_DB} > "${FILE_PATH}"
+# Executa o pg_dump direto de dentro do container Docker
+docker exec -t ${CONTAINER_NAME} pg_dump -U ${POSTGRES_USER} -d ${POSTGRES_DB} > "${FILE_PATH}"
 
 if [ $? -eq 0 ]; then
   echo "✅ Backup concluído com sucesso: ${FILE_PATH}"
+  
+  # Remove backups antigos (com mais de 7 dias)
   find ${BACKUP_DIR} -type f -name "*.sql" -mtime +${RETENTION_DAYS} -delete
-  echo "🧹 Limpeza de backups antigos concluída."
+  echo "🧹 Limpeza de backups com mais de ${RETENTION_DAYS} dias concluída."
 else
-  echo "❌ Erro ao realizar o backup do banco de dados!"
+  echo "❌ Erro ao realizar o backup no Docker!"
 fi
+
