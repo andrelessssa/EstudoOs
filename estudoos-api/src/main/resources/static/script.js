@@ -502,6 +502,7 @@ async function renderHoje() {
   }
 }
 
+// 🎯 CARREGA OS TÓPICOS FIXANDO A SELEÇÃO DA MATÉRIA
 async function loadSessionTopics() {
   if (revisaoAtiva) return;
 
@@ -531,7 +532,7 @@ async function loadSessionTopics() {
       const jaConcluido = t.concluido === true || t.concluido === 'true' || t.done === true;
       const estaMarcadoLocalmente = topicosSelecionadosLocalmente.includes(idNum);
 
-      return `<div class="topic-row ${jaConcluido ? 'concluido-banco' : ''}" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="tratarCliqueTopico('${t.id}', ${jaConcluido})">
+      return `<div class="topic-row ${jaConcluido ? 'concluido-banco' : ''}" style="display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.8rem; margin-bottom:0.3rem; background:var(--surface2); border-radius:var(--radius); cursor:pointer;" onclick="tratarCliqueTopico('${t.id}', ${jaConcluido}, '${matId}')">
         <div class="topic-check ${jaConcluido || estaMarcadoLocalmente ? 'checked' : ''}" id="check-${t.id}"></div>
         <div class="topic-name ${jaConcluido || estaMarcadoLocalmente ? 'done' : ''}" id="name-${t.id}">
           ${t.nome}
@@ -559,7 +560,7 @@ async function irParaCadernoMateria(materiaId, topicoId) {
   if (selMat) selMat.value = materiaId;
 
   await loadSessionTopics();
-  await tratarCliqueTopico(topicoId, true);
+  await tratarCliqueTopico(topicoId, true, materiaId);
 }
 
 // 🟢 Carrega a sessão diretamente no caderno ao clicar no histórico
@@ -596,7 +597,10 @@ async function carregarSessaoDiretaNoCaderno(sessaoId) {
   }
 }
 
-async function tratarCliqueTopico(topicId, jaConcluido) {
+// 🎯 TRATA O CLIQUE NO TÓPICO MANTENDO A MATÉRIA SELECIONADA
+async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
+  const selMat = document.getElementById('session-mat');
+
   if (jaConcluido) {
     try {
       const resSessoes = await fetchComAuth('/sessoes');
@@ -627,6 +631,11 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
           btnSave.style.color = '#fff';
         }
 
+        // 🔒 Garante que a matéria não reseta
+        if (selMat && (materiaIdAtual || sessaoDoTopico.materiaId)) {
+          selMat.value = materiaIdAtual || sessaoDoTopico.materiaId;
+        }
+
         exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
       }
 
@@ -635,6 +644,9 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
     }
     return;
   }
+
+  // Se o usuário selecionou uma matéria manualmente, preserva a escolha
+  const matIdSalva = materiaIdAtual || (selMat ? selMat.value : null);
 
   dataAtivaSessao = today();
 
@@ -645,6 +657,11 @@ async function tratarCliqueTopico(topicId, jaConcluido) {
   }
 
   await renderHistoricoSessaoPorData(dataAtivaSessao);
+
+  // 🔒 Restaura e trava a matéria no select antes de toggle local
+  if (selMat && matIdSalva) {
+    selMat.value = matIdSalva;
+  }
 
   resetaModoSalvarSessao();
   toggleTopicLocal(topicId);
@@ -696,13 +713,15 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
     const primeiraSessao = sessoesInvertidas[0];
     if (primeiraSessao && !revisaoAtiva) {
       const selMat = document.getElementById('session-mat');
-      if (selMat && primeiraSessao.materiaId) {
+
+      // 🔒 Só altera o select se o usuário ainda não tiver escolhido uma matéria manualmente
+      if (selMat && primeiraSessao.materiaId && !selMat.value) {
         selMat.value = primeiraSessao.materiaId;
         await loadSessionTopics();
       }
 
       const notesEl = document.getElementById('session-notes');
-      if (notesEl) {
+      if (notesEl && !notesEl.value) {
         notesEl.value = primeiraSessao.anotacoes || "";
         autoGrowNotes(notesEl);
       }
