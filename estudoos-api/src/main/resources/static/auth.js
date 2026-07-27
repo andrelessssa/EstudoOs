@@ -128,8 +128,8 @@ function aplicarControleAcesso() {
     try {
         const usuario = JSON.parse(usuarioSalvo);
 
-        const cardCadastroAdmin = document.getElementById('card-cadastrar-usuario') || 
-                                  document.querySelector('#page-perfil .card:first-child');
+        const cardCadastroAdmin = document.getElementById('card-cadastrar-usuario') ||
+            document.querySelector('#page-perfil .card:first-child');
         const tabPerfilNav = document.getElementById('tab-perfil');
 
         // Exibe os dados no Perfil
@@ -141,7 +141,7 @@ function aplicarControleAcesso() {
         // 🔒 Regra de Ouro: Apenas o seu e-mail é considerado ADMIN do sistema
         const EMAIL_ADMIN = 'andrelessa013@gmail.com';
         const ehAdmin = usuario.email && (
-            usuario.email.trim().toLowerCase() === EMAIL_ADMIN.toLowerCase() || 
+            usuario.email.trim().toLowerCase() === EMAIL_ADMIN.toLowerCase() ||
             usuario.role === 'ADMIN'
         );
 
@@ -159,6 +159,134 @@ function aplicarControleAcesso() {
         console.error('Erro no parse do usuário:', e);
     }
 }
+// 📋 Carrega a lista de usuários cadastrados na aba de Administração
+async function carregarListaUsuarios() {
+    const container = document.getElementById('lista-usuarios-container');
+    if (!container) return;
+
+    try {
+        const response = await fetchComAuth('/usuarios');
+        if (!response.ok) throw new Error('Erro ao buscar lista de usuários.');
+
+        const usuarios = await response.json();
+
+        if (usuarios.length === 0) {
+            container.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Nenhum usuário cadastrado.</div>`;
+            return;
+        }
+
+        container.innerHTML = usuarios.map(u => `
+            <div style="background: var(--surface2); padding: 0.75rem 1rem; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);">
+                <div>
+                    <strong style="font-size: 0.95rem; display: block; color: var(--text);">${u.nome}</strong>
+                    <span style="font-size: 0.8rem; color: var(--muted);">${u.email}</span>
+                </div>
+                <div style="display: flex; gap: 0.4rem;">
+                    <button class="btn sm" style="background: var(--surface3);" onclick="abrirModalEdicao(${u.id}, '${u.nome}', '${u.email}')">✏️ Editar</button>
+                    <button class="btn sm" style="background: var(--coral); color: white;" onclick="deletarUsuario(${u.id})">🗑️ Excluir</button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (err) {
+        container.innerHTML = `<div class="empty" style="color: var(--coral);">❌ Erro ao carregar usuários.</div>`;
+        console.error(err);
+    }
+}
+
+// ✏️ Abre o modal de edição preenchendo os campos
+function abrirModalEdicao(id, nome, email) {
+    document.getElementById('edit-user-id').value = id;
+    document.getElementById('edit-user-nome').value = nome;
+    document.getElementById('edit-user-email').value = email;
+    document.getElementById('edit-user-senha').value = '';
+    document.getElementById('msg-edit-status').innerText = '';
+
+    const modal = document.getElementById('modal-editar-usuario');
+    if (modal) modal.style.display = 'flex';
+}
+
+// ❌ Fecha o modal de edição
+function fecharModalEdicao() {
+    const modal = document.getElementById('modal-editar-usuario');
+    if (modal) modal.style.display = 'none';
+}
+
+// 💾 Salva as alterações do usuário (incluindo senha opcional)
+async function salvarEdicaoUsuario() {
+    const id = document.getElementById('edit-user-id').value;
+    const nome = document.getElementById('edit-user-nome').value.trim();
+    const email = document.getElementById('edit-user-email').value.trim();
+    const senha = document.getElementById('edit-user-senha').value;
+    const msgStatus = document.getElementById('msg-edit-status');
+
+    try {
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--muted)';
+            msgStatus.innerText = 'Salvando... ⏳';
+        }
+
+        const bodyData = { nome, email };
+        if (senha) {
+            bodyData.senha = senha; // Só envia se preencheu nova senha
+        }
+
+        const response = await fetchComAuth(`/usuarios/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bodyData)
+        });
+
+        if (!response.ok) throw new Error('Erro ao atualizar usuário.');
+
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--green)';
+            msgStatus.innerText = '✅ Atualizado com sucesso!';
+        }
+
+        setTimeout(() => {
+            fecharModalEdicao();
+            carregarListaUsuarios();
+        }, 1000);
+
+    } catch (err) {
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--coral)';
+            msgStatus.innerText = '❌ ' + err.message;
+        }
+    }
+}
+
+// 🗑️ Exclui um usuário após confirmação
+async function deletarUsuario(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+
+    try {
+        const response = await fetchComAuth(`/usuarios/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) throw new Error('Erro ao excluir usuário.');
+
+        carregarListaUsuarios();
+    } catch (err) {
+        alert('❌ Erro: ' + err.message);
+    }
+}
+
+// 🔄 Dispara o carregamento da lista sempre que a aba 'Cadastrar' for aberta
+const originalShowPage = window.showPage || function () { };
+// Modifica o comportamento do clique na aba de administração para carregar os usuários
+document.addEventListener('DOMContentLoaded', () => {
+    const tabCadastrar = document.getElementById('tab-perfil');
+    if (tabCadastrar) {
+        tabCadastrar.addEventListener('click', () => {
+            carregarListaUsuarios();
+        });
+    }
+    // Se já estiver na aba ao carregar
+    carregarListaUsuarios();
+});
 
 // 🚀 Executa ao carregar
 document.addEventListener('DOMContentLoaded', () => {
