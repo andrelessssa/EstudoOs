@@ -19,6 +19,7 @@ function fazerLogout() {
   localStorage.removeItem('token');
   localStorage.removeItem('estudoos_token');
   localStorage.removeItem('estudoos_usuario');
+  localStorage.removeItem('usuario');
   localStorage.clear();
   window.location.reload();
 }
@@ -31,7 +32,7 @@ function showPage(id) {
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
 
-  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro'];
+  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'perfil'];
   const idx = pages.indexOf(id);
   if (idx !== -1) {
     const tabs = document.querySelectorAll('.tab');
@@ -47,6 +48,9 @@ function showPage(id) {
   if (id === 'hoje') renderHoje();
   if (id === 'revisao') renderRevisao();
   if (id === 'questoes') renderQuestoes();
+  if (id === 'perfil' && typeof aplicarControleAcesso === 'function') {
+    aplicarControleAcesso();
+  }
 }
 
 function toggleTopics(id) {
@@ -1209,6 +1213,10 @@ function verificarAutenticacaoEInicializar() {
     } catch (e) {
       console.error("Erro ao carregar dados do usuário:", e);
     }
+  }
+
+  if (typeof aplicarControleAcesso === 'function') {
+    aplicarControleAcesso();
   }
 
   renderDashboard();

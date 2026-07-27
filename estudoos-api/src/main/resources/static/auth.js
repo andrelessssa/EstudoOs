@@ -1,26 +1,4 @@
-// 🔄 Alterna as abas na modal de autenticação (Login / Cadastro)
-function alternarAbaAuth(aba) {
-    const formLogin = document.getElementById('form-login');
-    const formRegistro = document.getElementById('form-registro');
-    const tabLogin = document.getElementById('btn-tab-login');
-    const tabRegistro = document.getElementById('btn-tab-registro');
-    const msgErro = document.getElementById('msg-auth-erro');
-    if (msgErro) msgErro.innerText = '';
-
-    if (aba === 'login') {
-        if (formLogin) formLogin.style.display = 'block';
-        if (formRegistro) formRegistro.style.display = 'none';
-        if (tabLogin) tabLogin.classList.add('active');
-        if (tabRegistro) tabRegistro.classList.remove('active');
-    } else {
-        if (formLogin) formLogin.style.display = 'none';
-        if (formRegistro) formRegistro.style.display = 'block';
-        if (tabLogin) tabLogin.classList.remove('active');
-        if (tabRegistro) tabRegistro.classList.add('active');
-    }
-}
-
-// 🔐 Processa o Login
+// 🔐 Processa o Login (Exclusivo)
 async function realizarLogin(event) {
     if (event) event.preventDefault();
 
@@ -34,7 +12,13 @@ async function realizarLogin(event) {
     const senha = senhaInput.value;
 
     try {
-        const response = await fetchComAuth('/auth/login', {
+        if (msgErro) {
+            msgErro.style.color = 'var(--muted)';
+            msgErro.innerText = 'Autenticando... ⏳';
+        }
+
+        // Utiliza fetch normal para não enviar token antigo no header do login
+        const response = await fetch('/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, senha })
@@ -46,15 +30,23 @@ async function realizarLogin(event) {
 
         const data = await response.json();
 
-        // 💾 Salva o Token e dados do Usuário (em AMBAS as chaves para garantir 100%)
-        if (data.token) {
-            // 🧹 Limpa resíduos de logins antigos
+        // Aceita 'token' ou 'jwt' conforme o retorno do Spring Boot
+        const tokenRecebido = data.token || data.jwt || data.tokenAcesso;
+
+        if (tokenRecebido) {
+            // 🧹 Limpa sessões antigas
             localStorage.clear();
 
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('estudoos_token', data.token);
-            
-            const objUsuario = JSON.stringify({ nome: data.nome || 'Usuário', email: data.email || email });
+            localStorage.setItem('token', tokenRecebido);
+            localStorage.setItem('estudoos_token', tokenRecebido);
+
+            // 💾 Salva os dados do usuário com fallback de segurança
+            const objUsuario = JSON.stringify({
+                nome: data.nome || email.split('@')[0],
+                email: data.email || email,
+                role: data.role || (email.toLowerCase() === 'outrousuario@gmail.com' ? 'USER' : 'ADMIN')
+            });
+
             localStorage.setItem('usuario', objUsuario);
             localStorage.setItem('estudoos_usuario', objUsuario);
 
@@ -65,24 +57,27 @@ async function realizarLogin(event) {
             const authModal = document.getElementById('auth-modal');
             if (authModal) authModal.style.display = 'none';
 
-            // 🚀 Recarrega a página para reiniciar os estados limpos
+            // 🚀 Recarrega para iniciar a sessão limpa
             window.location.reload();
         } else {
-            throw new Error('Token não retornado pelo servidor.');
+            throw new Error('Servidor não retornou um token válido.');
         }
     } catch (err) {
-        if (msgErro) msgErro.innerText = err.message;
+        if (msgErro) {
+            msgErro.style.color = 'var(--coral)';
+            msgErro.innerText = '❌ ' + err.message;
+        }
     }
 }
 
-// 📝 Processa o Registro de novo usuário
-async function realizarRegistro(event) {
+// 👑 Processa a Criação de Usuário feita dentro da aba 'Meu Perfil' (Apenas Admin)
+async function criarNovoUsuarioAdmin(event) {
     if (event) event.preventDefault();
 
-    const nomeInput = document.getElementById('reg-nome');
-    const emailInput = document.getElementById('reg-email');
-    const senhaInput = document.getElementById('reg-senha');
-    const msgErro = document.getElementById('msg-auth-erro');
+    const nomeInput = document.getElementById('admin-reg-nome');
+    const emailInput = document.getElementById('admin-reg-email');
+    const senhaInput = document.getElementById('admin-reg-senha');
+    const msgStatus = document.getElementById('msg-admin-reg');
 
     if (!nomeInput || !emailInput || !senhaInput) return;
 
@@ -91,6 +86,11 @@ async function realizarRegistro(event) {
     const senha = senhaInput.value;
 
     try {
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--muted)';
+            msgStatus.innerText = 'Cadastrando... ⏳';
+        }
+
         const response = await fetchComAuth('/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -98,33 +98,63 @@ async function realizarRegistro(event) {
         });
 
         if (!response.ok) {
-            throw new Error('Erro ao cadastrar. E-mail já está em uso?');
+            throw new Error('Erro ao cadastrar usuário. E-mail já pode estar em uso.');
         }
 
-        const data = await response.json();
-
-        if (data.token) {
-            localStorage.clear();
-
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('estudoos_token', data.token);
-            
-            const objUsuario = JSON.stringify({ nome: data.nome || nome, email: data.email || email });
-            localStorage.setItem('usuario', objUsuario);
-            localStorage.setItem('estudoos_usuario', objUsuario);
-
-            const formRegistro = document.getElementById('form-registro');
-            if (formRegistro) formRegistro.reset();
-            if (msgErro) msgErro.innerText = '';
-
-            const authModal = document.getElementById('auth-modal');
-            if (authModal) authModal.style.display = 'none';
-
-            window.location.reload();
-        } else {
-            throw new Error('Token não retornado pelo servidor.');
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--green)';
+            msgStatus.innerText = '✅ Usuário criado com sucesso!';
         }
+
+        const formAdmin = document.getElementById('form-criar-usuario-admin');
+        if (formAdmin) formAdmin.reset();
+
     } catch (err) {
-        if (msgErro) msgErro.innerText = err.message;
+        if (msgStatus) {
+            msgStatus.style.color = 'var(--coral)';
+            msgStatus.innerText = '❌ ' + err.message;
+        }
     }
 }
+
+// 🛡️ Controle de Exibição por Permissões (Visual apenas)
+function aplicarControleAcesso() {
+    const usuarioSalvo = localStorage.getItem('usuario') || localStorage.getItem('estudoos_usuario');
+
+    if (!usuarioSalvo) return;
+
+    try {
+        const usuario = JSON.parse(usuarioSalvo);
+
+        const cardCadastroAdmin = document.getElementById('card-cadastrar-usuario');
+        const tabPerfilNav = document.getElementById('tab-perfil');
+
+        // Exibe os dados no Perfil
+        const elNome = document.getElementById('perfil-nome-exibicao');
+        const elEmail = document.getElementById('perfil-email-exibicao');
+        if (elNome) elNome.innerText = usuario.nome || '—';
+        if (elEmail) elEmail.innerText = usuario.email || '—';
+
+        // 🔒 Define quem é ADMIN
+        const isOutroUsuario = usuario.email && usuario.email.toLowerCase() === 'outrousuario@gmail.com';
+        const ehAdmin = !isOutroUsuario && (usuario.role === 'ADMIN' || usuario.role === 'ROLE_ADMIN' || !usuario.role);
+
+        // Oculta/Exibe o card interno de cadastro
+        if (cardCadastroAdmin) {
+            cardCadastroAdmin.style.display = ehAdmin ? 'block' : 'none';
+        }
+
+        // Oculta/Exibe a aba na navbar superior
+        if (tabPerfilNav) {
+            tabPerfilNav.style.display = ehAdmin ? 'block' : 'none';
+        }
+
+    } catch (e) {
+        console.error('Erro no parse do usuário:', e);
+    }
+}
+
+// 🚀 Executa ao carregar
+document.addEventListener('DOMContentLoaded', () => {
+    aplicarControleAcesso();
+});

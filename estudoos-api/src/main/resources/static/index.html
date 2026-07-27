@@ -22,6 +22,8 @@
     <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
     <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
     <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+    <!-- 🟢 ID adicionado aqui para controle via JS -->
+    <div class="tab" id="tab-perfil" onclick="showPage('perfil')">👤 Meu Perfil</div>
 
     <!-- 🟢 USUÁRIO & BOTÃO DE LOGOUT -->
     <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem;">
@@ -31,12 +33,12 @@
     </div>
   </div>
 
-  <!-- ═══ MODAL DE AUTENTICAÇÃO (LOGIN / CADASTRO FIXO) ═══ -->
+  <!-- ═══ MODAL DE AUTENTICAÇÃO (APENAS LOGIN PÚBLICO) ═══ -->
   <div id="auth-modal" class="auth-overlay" style="display: none;">
     <div class="auth-card">
-      <div class="auth-tabs">
-        <button id="btn-tab-login" class="active" onclick="alternarAbaAuth('login')">Entrar 🔑</button>
-        <button id="btn-tab-registro" onclick="alternarAbaAuth('registro')">Cadastrar 📝</button>
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Estudo<span style="color: var(--accent);">OS</span></h2>
+        <p style="color: var(--muted); font-size: 0.85rem;">Acesso Restrito</p>
       </div>
 
       <!-- Form Login -->
@@ -51,25 +53,6 @@
           <input type="password" id="login-senha" placeholder="******" required />
         </div>
         <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem;">Entrar no Sistema</button>
-      </form>
-
-      <!-- Form Registro -->
-      <form id="form-registro" style="display: none;" onsubmit="realizarRegistro(event);">
-        <h3 style="margin-bottom: 1rem;">Criar sua Conta 🎯</h3>
-        <div class="form-group">
-          <label>Nome Completo</label>
-          <input type="text" id="reg-nome" placeholder="Seu nome" required />
-        </div>
-        <div class="form-group">
-          <label>E-mail</label>
-          <input type="email" id="reg-email" placeholder="seu@email.com" required />
-        </div>
-        <div class="form-group">
-          <label>Senha</label>
-          <input type="password" id="reg-senha" placeholder="******" required />
-        </div>
-        <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem; background: var(--green);">Criar
-          Conta</button>
       </form>
 
       <div id="msg-auth-erro" style="color: var(--coral); font-size: 0.85rem; margin-top: 1rem; text-align: center;">
@@ -367,6 +350,58 @@
         <div style="font-size:12px;color:var(--muted);line-height:1.6;" id="technique-tip">
           Leia o material, depois feche e escreva os pontos principais com suas palavras. Repita até conseguir
           reproduzir sem olhar.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MEU PERFIL & CADASTRO DE USUÁRIOS (ADMIN) ═══ -->
+  <div id="page-perfil" class="page">
+    <div class="section-header">
+      <div class="section-title">Meu Perfil &amp; Administração</div>
+      <div style="font-size:12px;color:var(--muted);">Gestão interna do sistema</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <!-- Formulário exclusivo de cadastro de novos usuários -->
+      <div class="card" id="card-cadastrar-usuario">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--accent);">👑 Cadastrar Novo Usuário</h3>
+        <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1.25rem;">
+          Apenas administradores logados podem criar novos perfis de acesso.
+        </p>
+
+        <form id="form-criar-usuario-admin" onsubmit="criarNovoUsuarioAdmin(event);">
+          <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" id="admin-reg-nome" placeholder="Nome do usuário" required />
+          </div>
+          <div class="form-group">
+            <label>E-mail de Acesso</label>
+            <input type="email" id="admin-reg-email" placeholder="usuario@email.com" required />
+          </div>
+          <div class="form-group">
+            <label>Senha Inicial</label>
+            <input type="password" id="admin-reg-senha" placeholder="******" required />
+          </div>
+          <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem; background: var(--green);">
+            ➕ Cadastrar Usuário
+          </button>
+        </form>
+        <div id="msg-admin-reg" style="font-size: 0.85rem; margin-top: 1rem; text-align: center;"></div>
+      </div>
+
+      <!-- Informações do perfil logado -->
+      <div class="card">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">👤 Seus Dados</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div>
+            <span style="font-size: 0.8rem; color: var(--muted); display: block;">USUÁRIO CONECTADO</span>
+            <strong id="perfil-nome-exibicao" style="font-size: 1.1rem;">—</strong>
+          </div>
+          <div>
+            <span style="font-size: 0.8rem; color: var(--muted); display: block;">E-MAIL</span>
+            <span id="perfil-email-exibicao" style="font-size: 0.95rem;">—</span>
+          </div>
         </div>
       </div>
     </div>

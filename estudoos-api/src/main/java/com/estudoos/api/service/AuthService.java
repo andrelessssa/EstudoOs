@@ -38,7 +38,10 @@ public class AuthService {
         usuario = usuarioRepository.save(usuario);
 
         String token = tokenProvider.gerarToken(usuario.getEmail(), usuario.getId());
-        return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail());
+        
+        // Retorna incluindo a role do usuário registrado
+        String userRole = usuario.getRole() != null ? usuario.getRole() : "USER";
+        return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail(), userRole);
     }
 
     public TokenResponseDTO login(LoginDTO dto) {
@@ -50,6 +53,10 @@ public class AuthService {
         }
 
         String token = tokenProvider.gerarToken(usuario.getEmail(), usuario.getId());
-        return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail());
+
+        // Se a model Usuario ainda não tiver o campo role, defina uma lógica (ex: email principal é ADMIN)
+        String userRole = usuario.getRole() != null ? usuario.getRole() : "ADMIN";
+
+        return new TokenResponseDTO(token, usuario.getNome(), usuario.getEmail(), userRole);
     }
 }
