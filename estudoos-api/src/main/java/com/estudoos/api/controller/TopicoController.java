@@ -34,11 +34,13 @@ public class TopicoController {
         return ResponseEntity.ok(topicoService.listarPorMateria(materiaId));
     }
 
-    // ✏️ PUT: Renomear tópico existente
+    // ✏️ PUT: Renomear tópico OU atualizar status de conclusão (marcar/desmarcar) 🔄
     @PutMapping("/{id}")
-    public ResponseEntity<Topico> atualizarTopico(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String novoNome = body.get("nome");
-        Topico topicoAtualizado = topicoService.atualizarTopico(id, novoNome);
+    public ResponseEntity<Topico> atualizarTopico(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String novoNome = body.containsKey("nome") ? (String) body.get("nome") : null;
+        Boolean concluido = body.containsKey("concluido") ? (Boolean) body.get("concluido") : null;
+
+        Topico topicoAtualizado = topicoService.atualizarTopico(id, novoNome, concluido);
         return ResponseEntity.ok(topicoAtualizado);
     }
 
@@ -55,6 +57,7 @@ public class TopicoController {
         topicoService.adicionarTopicosAMateria(materiaId, topicos);
         return ResponseEntity.ok().build();
     }
+
     @GetMapping
     public ResponseEntity<List<Topico>> listarTodos() {
         return ResponseEntity.ok(topicoService.listarTodos());

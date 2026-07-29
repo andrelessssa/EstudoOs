@@ -77,7 +77,7 @@ public class RevisaoService {
             proximaEtapa = 4;
         }
 
-        // 3. Salva a próxima revisão mantendo o vinculo com o Usuario 📅🔒
+        // 3. Salva a próxima revisão mantendo o vínculo com o Usuário 📅🔒
         if (proximoIntervalo > 0 && revisaoAtual.getTopico() != null) {
             Revisao proximaRevisao = new Revisao();
             proximaRevisao.setTopico(revisaoAtual.getTopico());
@@ -91,15 +91,17 @@ public class RevisaoService {
         }
     }
 
-    // 🟢 3. Estatísticas exclusivas do USUÁRIO logado
+    // 🟢 3. Estatísticas exclusivas e filtradas do USUÁRIO logado
     public Map<String, Long> obterEstatisticasPorUsuario(Long usuarioId) {
         Map<String, Long> stats = new HashMap<>();
         LocalDate hoje = LocalDate.now();
         LocalDate proximaSemana = hoje.plusDays(7);
 
         long hojeCount = revisaoRepository.contarRevisoesAtrasadasEHojePorUsuario(usuarioId, hoje);
-        long semanaCount = revisaoRepository.contarRevisoesNoIntervaloPorUsuario(usuarioId, hoje, proximaSemana);
-        long feitasCount = revisaoRepository.countByUsuarioIdAndFeitaTrue(usuarioId);
+        
+        // 🚀 Ajustado para contar os próximos 7 dias excluindo hoje, evitando contagem duplicada
+        long semanaCount = revisaoRepository.contarRevisoesNoIntervaloPorUsuario(usuarioId, hoje.plusDays(1), proximaSemana);
+        long feitasCount = revisaoRepository.countByUsuarioIdAndFeitaTrueExclusivo(usuarioId);
 
         stats.put("hoje", hojeCount);
         stats.put("proximos7Dias", semanaCount);

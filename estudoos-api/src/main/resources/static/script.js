@@ -631,7 +631,6 @@ async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
           btnSave.style.color = '#fff';
         }
 
-        // 🔒 Garante que a matéria não reseta
         if (selMat && (materiaIdAtual || sessaoDoTopico.materiaId)) {
           selMat.value = materiaIdAtual || sessaoDoTopico.materiaId;
         }
@@ -645,7 +644,6 @@ async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
     return;
   }
 
-  // Se o usuário selecionou uma matéria manualmente, preserva a escolha
   const matIdSalva = materiaIdAtual || (selMat ? selMat.value : null);
 
   dataAtivaSessao = today();
@@ -658,7 +656,6 @@ async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
 
   await renderHistoricoSessaoPorData(dataAtivaSessao);
 
-  // 🔒 Restaura e trava a matéria no select antes de toggle local
   if (selMat && matIdSalva) {
     selMat.value = matIdSalva;
   }
@@ -714,7 +711,6 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
     if (primeiraSessao && !revisaoAtiva) {
       const selMat = document.getElementById('session-mat');
 
-      // 🔒 Só altera o select se o usuário ainda não tiver escolhido uma matéria manualmente
       if (selMat && primeiraSessao.materiaId && !selMat.value) {
         selMat.value = primeiraSessao.materiaId;
         await loadSessionTopics();
@@ -817,6 +813,29 @@ function alternarModoEdicao() {
   renderMaterias();
 }
 
+// 🔄 Alterna o status do assunto (Concluído <-> Não Concluído) no modo Gerenciar
+async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
+  const novoStatus = !statusAtual;
+
+  try {
+    const res = await fetchComAuth(`/topicos/${topicoId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ concluido: novoStatus })
+    });
+
+    if (res.ok) {
+      await renderMaterias();
+      await renderDashboard();
+    } else {
+      alert("❌ Não foi possível alterar o status do assunto no servidor.");
+    }
+  } catch (error) {
+    console.error("Erro ao alternar status do assunto:", error);
+    alert("❌ Erro de conexão ao atualizar o assunto.");
+  }
+}
+
 async function renderMaterias() {
   if (!getAuthToken()) return;
 
@@ -880,10 +899,14 @@ async function renderMaterias() {
               </div>
             ` : '';
 
+        const cliqueContainer = modoEdicao
+          ? `onclick="alternarStatusConclusaoTopico('${t.id}', ${jaConcluido})"`
+          : (jaConcluido ? `onclick="irParaCadernoMateria('${m.id}', '${t.id}')"` : '');
+
         return `
-            <div class="topic-row" style="display:flex; align-items:center; justify-content:space-between; padding: 0.4rem 0.8rem; margin-bottom: 0.2rem; background: var(--surface2); border-radius: var(--radius); cursor: ${jaConcluido && !modoEdicao ? 'pointer' : 'default'};" onclick="${jaConcluido && !modoEdicao ? `irParaCadernoMateria('${m.id}', '${t.id}')` : ''}">
+            <div class="topic-row" style="display:flex; align-items:center; justify-content:space-between; padding: 0.4rem 0.8rem; margin-bottom: 0.2rem; background: var(--surface2); border-radius: var(--radius); cursor: pointer;" ${cliqueContainer}>
               <div style="display:flex; align-items:center; gap: 0.5rem;">
-                <div class="topic-check ${jaConcluido ? 'checked' : ''}" style="pointer-events: none;"></div>
+                <div class="topic-check ${jaConcluido ? 'checked' : ''}" title="${modoEdicao ? 'Clique para alternar status' : ''}"></div>
                 <div class="topic-name ${jaConcluido ? 'done' : ''}">${t.nome}</div>
               </div>
               ${botoesAcaoTopico}

@@ -36,12 +36,27 @@ public class TopicoService {
         return topicoRepository.findByMateriaId(materiaId);
     }
 
-    // ✏️ Editar nome do tópico
+    // ✏️ Editar nome OU status de conclusão do tópico 🔄
     @Transactional
-    public Topico atualizarTopico(Long id, String novoNome) {
+    public Topico atualizarTopico(Long id, String novoNome, Boolean concluido) {
         Topico topico = topicoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Tópico não encontrado com ID: " + id));
-        topico.setNome(novoNome.trim());
+
+        // Se informou um nome válido, atualiza
+        if (novoNome != null && !novoNome.trim().isEmpty()) {
+            topico.setNome(novoNome.trim());
+        }
+
+        // Se informou o booleano de conclusão (true ou false), atualiza
+        if (concluido != null) {
+            topico.setConcluido(concluido);
+            
+            // 💡 Se desmarcou o assunto (concluido == false), remove as revisões agendadas pendentes
+            if (!concluido) {
+                revisaoRepository.deleteByTopicoId(id);
+            }
+        }
+
         return topicoRepository.save(topico);
     }
 
@@ -59,8 +74,6 @@ public class TopicoService {
         for (SessaoEstudo sessao : sessoes) {
             if (sessao.getTopicos() != null && sessao.getTopicos().contains(topico)) {
                 sessao.getTopicos().remove(topico);
-                // Se a sessão ficou sem nenhum tópico associado, podemos optar por remover a
-                // sessão ou salvá-la limpa
                 sessaoEstudoRepository.save(sessao);
             }
         }
