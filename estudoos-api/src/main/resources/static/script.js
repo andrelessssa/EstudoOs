@@ -818,18 +818,39 @@ async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
   const novoStatus = !statusAtual;
 
   try {
+    let nomeTopicoAtual = '';
+    for (const mat of state.materias) {
+      if (mat.topicos) {
+        const top = mat.topicos.find(t => String(t.id) === String(topicoId));
+        if (top) {
+          nomeTopicoAtual = top.nome;
+          break;
+        }
+      }
+    }
+
+    const payload = {
+      nome: nomeTopicoAtual,
+      concluido: novoStatus
+    };
+
     const res = await fetchComAuth(`/topicos/${topicoId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ concluido: novoStatus })
+      body: JSON.stringify(payload)
     });
 
     if (res.ok) {
       await renderMaterias();
       await renderDashboard();
+      if (typeof renderRevisao === 'function') await renderRevisao();
+      if (typeof renderHistoricoSessaoHoje === 'function') await renderHistoricoSessaoHoje();
     } else {
+      const errorData = await res.json().catch(() => null);
+      console.error("Erro retornado pelo servidor Java no PUT:", errorData);
       alert("❌ Não foi possível alterar o status do assunto no servidor.");
     }
+
   } catch (error) {
     console.error("Erro ao alternar status do assunto:", error);
     alert("❌ Erro de conexão ao atualizar o assunto.");

@@ -51,9 +51,25 @@ public class TopicoService {
         if (concluido != null) {
             topico.setConcluido(concluido);
             
-            // 💡 Se desmarcou o assunto (concluido == false), remove as revisões agendadas pendentes
+            // 💡 Se desmarcou o assunto (concluido == false)
             if (!concluido) {
+                // 1. Remove as revisões agendadas pendentes
                 revisaoRepository.deleteByTopicoId(id);
+
+                // 2. Remove o tópico das sessões registradas no banco 🧹
+                List<SessaoEstudo> sessoes = sessaoEstudoRepository.findAll();
+                for (SessaoEstudo sessao : sessoes) {
+                    if (sessao.getTopicos() != null && sessao.getTopicos().contains(topico)) {
+                        sessao.getTopicos().remove(topico);
+
+                        // Se a sessão ficou vazia (sem tópicos), exclui a sessão por completo 💥
+                        if (sessao.getTopicos().isEmpty()) {
+                            sessaoEstudoRepository.delete(sessao);
+                        } else {
+                            sessaoEstudoRepository.save(sessao);
+                        }
+                    }
+                }
             }
         }
 
@@ -74,7 +90,11 @@ public class TopicoService {
         for (SessaoEstudo sessao : sessoes) {
             if (sessao.getTopicos() != null && sessao.getTopicos().contains(topico)) {
                 sessao.getTopicos().remove(topico);
-                sessaoEstudoRepository.save(sessao);
+                if (sessao.getTopicos().isEmpty()) {
+                    sessaoEstudoRepository.delete(sessao);
+                } else {
+                    sessaoEstudoRepository.save(sessao);
+                }
             }
         }
 
