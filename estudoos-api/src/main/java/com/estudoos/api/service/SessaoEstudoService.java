@@ -1,6 +1,7 @@
 package com.estudoos.api.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +31,7 @@ public class SessaoEstudoService {
     private final UsuarioRepository usuarioRepository;
 
     private static final int[] INTERVALOS_REVISAO = { 3, 7, 15, 30 };
+    private static final ZoneId FUSO_MACEIO = ZoneId.of("America/Maceio");
 
     public SessaoEstudoService(SessaoEstudoRepository sessaoEstudoRepository,
                                MateriaRepository materiaRepository,
@@ -55,8 +57,14 @@ public class SessaoEstudoService {
         Materia materia = materiaRepository.findByIdAndUsuarioId(dto.materiaId(), usuarioLogado.getId())
                 .orElseThrow(() -> new RuntimeException("Matéria não encontrada com o ID: " + dto.materiaId()));
 
+        // 🟢 BLINDAGEM DE FUSO HORÁRIO:
+        // Prioriza a data enviada pelo frontend ou usa o fuso local de Maceió
+        LocalDate dataRef = (dto.dataSessao() != null) 
+                ? dto.dataSessao() 
+                : LocalDate.now(FUSO_MACEIO);
+
         SessaoEstudo sessao = new SessaoEstudo();
-        sessao.setDataSessao(LocalDate.now());
+        sessao.setDataSessao(dataRef);
         sessao.setAnotacoes(dto.anotacoes());
         sessao.setMateria(materia);
         sessao.setUsuario(usuarioLogado);
@@ -70,7 +78,7 @@ public class SessaoEstudoService {
                         .orElseThrow(() -> new RuntimeException("Tópico não encontrado com o ID: " + idTopico));
 
                 topico.setConcluido(true);
-                topico.setDataConclusao(LocalDate.now());
+                topico.setDataConclusao(dataRef); // 👈 Usa a data calculada da sessão
                 topicoRepository.save(topico);
 
                 topicosEstudados.add(topico);
@@ -80,7 +88,7 @@ public class SessaoEstudoService {
                     int diasNoFuturo = INTERVALOS_REVISAO[i];
 
                     Revisao revisao = new Revisao();
-                    revisao.setDataAgendada(LocalDate.now().plusDays(diasNoFuturo));
+                    revisao.setDataAgendada(dataRef.plusDays(diasNoFuturo)); // 👈 Calcula as revisões a partir da data certa!
                     revisao.setIntervaloDias(diasNoFuturo);
                     revisao.setEtapa(i + 1);
                     revisao.setFeita(false);

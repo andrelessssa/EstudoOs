@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: estudoos
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123
+      TZ: America/Maceio # 🟢 Fuso horário do Banco de Dados
     ports:
       - "5434:5432" # 🟢 Alterado de 5432 para 5434 para não conflitar com a ARSAL nem Chamados!
     volumes:
@@ -25,6 +26,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 123
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      TZ: America/Maceio # 🟢 Fuso horário da JVM/Spring Boot
     depends_on:
       - postgres-db
 
