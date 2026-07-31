@@ -20,7 +20,7 @@ public class SessaoEstudo {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate dataSessao = LocalDate.now();
+    private LocalDate dataSessao; // 🟢 Removido o "= LocalDate.now()" para não sobrescrever com o fuso do servidor!
 
     @Column(columnDefinition = "TEXT")
     private String anotacoes;

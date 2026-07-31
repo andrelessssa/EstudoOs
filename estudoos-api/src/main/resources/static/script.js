@@ -60,9 +60,10 @@ function toggleTopics(id) {
   }
 }
 
-// ─── DATAS ───────────────────────────────────────────────────────────────────
+// ─── DATAS CORRIGIDAS (EVITA BUG DE FUSO APÓS AS 21:00) ──────────────────────
 function today() {
   const d = new Date();
+  // Garante a extração da data local exata baseada no fuso do Brasil, evitando avanço de dia à noite
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -70,6 +71,7 @@ function today() {
 }
 
 function dateStr(d) {
+  if (!d) return '';
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
@@ -432,7 +434,8 @@ async function saveSession() {
   const sessaoDTO = {
     materiaId: parseInt(matId),
     topicosConcluidosIds: topicosSelecionadosLocalmente,
-    anotacoes: notes
+    anotacoes: notes,
+    dataSessao: today() // Garante explicitamente o envio da data correta e atual do dia
   };
 
   try {
@@ -1287,7 +1290,7 @@ function verificarAutenticacaoEInicializar() {
   updatePomoDisplay();
 }
 
-// ─── INIT & LISTENERS ─────────────────────────────────────────────────────────
+// ─── INIT & LISTENERS ────────────────────────────────/────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const dashDateEl = document.getElementById('dash-date');
   if (dashDateEl) {

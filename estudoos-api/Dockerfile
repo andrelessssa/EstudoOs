@@ -13,11 +13,17 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+# 🟢 Instala o pacote de fusos horários (tzdata) exigido pelo Alpine
+RUN apk add --no-cache tzdata
+
+# 🟢 Define a variável de ambiente para o fuso correto
+ENV TZ=America/Maceio
+
 # Copia o .jar gerado na etapa anterior
 COPY --from=build /app/target/*.jar app.jar
 
 # Expõe a porta em que a aplicação roda
 EXPOSE 8083
 
-# Comando para subir o Spring Boot
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Comando para subir o Spring Boot forçando o fuso da JVM
+ENTRYPOINT ["java", "-Duser.timezone=America/Maceio", "-jar", "app.jar"]
