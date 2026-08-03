@@ -28,7 +28,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       TZ: America/Maceio
       JAVA_TOOL_OPTIONS: "-Duser.timezone=America/Maceio" # 👈 Força a JVM do Java a rodar estritamente no fuso do Brasil
-      GEMINI_API_KEY: "AQ.Ab8RN6KofRlHJqPqvYaUOrDxjDNhbGpoSWYNfmcQWCLCOOUESg" # 🔑 Chave da IA integrada
+      GEMINI_API_KEY: "" # 🔑 Chave da IA integrada
     depends_on:
       - postgres-db
 
