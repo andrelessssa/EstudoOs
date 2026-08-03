@@ -60,7 +60,7 @@ function toggleTopics(id) {
   }
 }
 
-// ─── DATAS CORRIGIDAS (EVITA BUG DE FUSO APÓS AS 21:00) ──────────────────────
+// ─── DATAS ──────────────────────
 function today() {
   const d = new Date();
   // Garante a extração da data local exata baseada no fuso do Brasil, evitando avanço de dia à noite

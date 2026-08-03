@@ -51,7 +51,7 @@ public class TopicoController {
         return ResponseEntity.noContent().build();
     }
 
-    // ➕ POST: Adicionar novos assuntos em uma matéria já criada
+    // ➕ POST: Adicionar novos assuntos em uma matéria (com ordenação inteligente via IA) 🚀
     @PostMapping("/materia/{materiaId}")
     public ResponseEntity<Void> adicionarTopicos(@PathVariable Long materiaId, @RequestBody List<String> topicos) {
         topicoService.adicionarTopicosAMateria(materiaId, topicos);

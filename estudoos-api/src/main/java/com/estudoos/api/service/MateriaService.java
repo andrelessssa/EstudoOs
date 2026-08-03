@@ -23,21 +23,24 @@ public class MateriaService {
     private final TopicoRepository topicoRepository;
     private final RevisaoRepository revisaoRepository;
     private final SessaoEstudoRepository sessaoEstudoRepository;
-    private final UsuarioRepository usuarioRepository; // 🟢 Injeção do repositório de usuário
+    private final UsuarioRepository usuarioRepository;
+    private final GeminiService geminiService; // 🤖 Injeção do serviço da IA
 
     public MateriaService(MateriaRepository materiaRepository, 
                           TopicoRepository topicoRepository,
                           RevisaoRepository revisaoRepository,
                           SessaoEstudoRepository sessaoEstudoRepository,
-                          UsuarioRepository usuarioRepository) {
+                          UsuarioRepository usuarioRepository,
+                          GeminiService geminiService) {
         this.materiaRepository = materiaRepository;
         this.topicoRepository = topicoRepository;
         this.revisaoRepository = revisaoRepository;
         this.sessaoEstudoRepository = sessaoEstudoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.geminiService = geminiService;
     }
 
-    // 🟢 1. Salva a matéria buscando o Usuário logado pelo e-mail do JWT
+    // 🟢 1. Salva a matéria e ordena os tópicos com IA do básico ao avançado 🧠✨
     @Transactional
     public MateriaDTO salvarMateriaComEditalPorEmail(MateriaDTO dto, String email) {
         Usuario usuarioLogado = usuarioRepository.findByEmail(email)
@@ -46,17 +49,24 @@ public class MateriaService {
         Materia materia = new Materia();
         materia.setNome(dto.nome());
         materia.setCor(dto.cor());
-        materia.setUsuario(usuarioLogado); // 🔒 Vincula o usuário logado real!
+        materia.setUsuario(usuarioLogado);
         materia = materiaRepository.save(materia);
 
         List<String> nomesTopicos = dto.topicos();
         if (nomesTopicos != null && !nomesTopicos.isEmpty()) {
-            for (String nomeTopico : nomesTopicos) {
-                Topico topico = new Topico();
-                topico.setNome(nomeTopico.trim());
-                topico.setConcluido(false);
-                topico.setMateria(materia);
-                topicoRepository.save(topico);
+            // 🤖 Chama o Gemini para ordenar os tópicos pedagogicamente
+            String respostaIa = geminiService.ordenarTopicosComIa(materia.getNome(), nomesTopicos);
+            List<String> topicosOrdenados = List.of(respostaIa.split("\n"));
+
+            for (String nomeTopico : topicosOrdenados) {
+                if (nomeTopico != null && !nomeTopico.trim().isEmpty()) {
+                    Topico topico = new Topico();
+                    // Limpa traços, números ou asteriscos extras que a IA possa retornar
+                    topico.setNome(nomeTopico.replaceAll("^[-*\\d.]+\\s*", "").trim());
+                    topico.setConcluido(false);
+                    topico.setMateria(materia);
+                    topicoRepository.save(topico);
+                }
             }
         }
 

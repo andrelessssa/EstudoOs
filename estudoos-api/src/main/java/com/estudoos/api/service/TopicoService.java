@@ -20,15 +20,18 @@ public class TopicoService {
     private final MateriaRepository materiaRepository;
     private final RevisaoRepository revisaoRepository;
     private final SessaoEstudoRepository sessaoEstudoRepository;
+    private final GeminiService geminiService; // 🤖 Serviço da IA injetado
 
     public TopicoService(TopicoRepository topicoRepository,
             MateriaRepository materiaRepository,
             RevisaoRepository revisaoRepository,
-            SessaoEstudoRepository sessaoEstudoRepository) {
+            SessaoEstudoRepository sessaoEstudoRepository,
+            GeminiService geminiService) {
         this.topicoRepository = topicoRepository;
         this.materiaRepository = materiaRepository;
         this.revisaoRepository = revisaoRepository;
         this.sessaoEstudoRepository = sessaoEstudoRepository;
+        this.geminiService = geminiService;
     }
 
     // 🔍 Listar tópicos por matéria
@@ -102,17 +105,24 @@ public class TopicoService {
         topicoRepository.delete(topico);
     }
 
-    // ➕ Adicionar novos tópicos a uma matéria existente
+    // ➕ Adicionar novos tópicos a uma matéria existente (Ordenados pela IA 🧠✨)
     @Transactional
     public void adicionarTopicosAMateria(Long materiaId, List<String> novosTopicos) {
         Materia materia = materiaRepository.findById(materiaId)
                 .orElseThrow(() -> new RuntimeException("Matéria não encontrada com ID: " + materiaId));
 
         if (novosTopicos != null && !novosTopicos.isEmpty()) {
-            for (String nomeTopico : novosTopicos) {
+            // 🤖 Chama o Gemini para organizar os tópicos do básico ao avançado
+            String respostaIa = geminiService.ordenarTopicosComIa(materia.getNome(), novosTopicos);
+            
+            // Quebra o texto retornado pela IA linha por linha
+            List<String> topicosOrdenados = List.of(respostaIa.split("\n"));
+
+            for (String nomeTopico : topicosOrdenados) {
                 if (nomeTopico != null && !nomeTopico.trim().isEmpty()) {
                     Topico topico = new Topico();
-                    topico.setNome(nomeTopico.trim());
+                    // Limpa traços, números ou asteriscos extras que a IA possa retornar
+                    topico.setNome(nomeTopico.replaceAll("^[-*\\d.]+\\s*", "").trim());
                     topico.setConcluido(false);
                     topico.setMateria(materia);
                     topicoRepository.save(topico);
