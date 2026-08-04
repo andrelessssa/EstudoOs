@@ -120,4 +120,43 @@ public class MateriaService {
         topicoRepository.deleteAll(topicos);
         materiaRepository.deleteById(id);
     }
+
+    // 🤖 5. Ordena os tópicos existentes da matéria usando o Gemini e atualiza no banco
+    @Transactional
+    public String ordenarTopicosComIa(Long materiaId) {
+        Materia materia = materiaRepository.findById(materiaId)
+            .orElseThrow(() -> new RuntimeException("Matéria não encontrada"));
+
+        List<String> nomesTopicos = materia.getTopicos().stream()
+            .map(Topico::getNome)
+            .distinct()
+            .toList();
+
+        if (nomesTopicos.isEmpty()) {
+            return "Nenhum tópico para ordenar.";
+        }
+
+        // Delega a chamada para o GeminiService injetado
+        String respostaIa = geminiService.ordenarTopicosComIa(materia.getNome(), nomesTopicos);
+        
+        List<String> topicosOrdenados = java.util.Arrays.stream(respostaIa.split("\n"))
+            .map(t -> t.replaceAll("^[-*\\d.]+\\s*", "").trim())
+            .filter(t -> !t.isEmpty())
+            .distinct()
+            .toList();
+
+        // Remove os antigos e salva os novos ordenados
+        topicoRepository.deleteAll(materia.getTopicos());
+        materia.getTopicos().clear();
+
+        for (String nomeTopico : topicosOrdenados) {
+            Topico topico = new Topico();
+            topico.setNome(nomeTopico);
+            topico.setConcluido(false);
+            topico.setMateria(materia);
+            topicoRepository.save(topico);
+        }
+
+        return "Tópicos ordenados com sucesso!";
+    }
 }

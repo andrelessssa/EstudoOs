@@ -1,7 +1,7 @@
-// ─── CORES ───────────────────────────────────────────────────────────────────
+//  CORES 
 const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf', '#fb7185', '#60a5fa', '#a3e635', '#f97316'];
 
-// ─── STATE LOCAL ─────────────────────────────────────────────────────────────
+//  STATE LOCAL 
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = [];
 let revisaoAtiva = null;
@@ -9,12 +9,12 @@ let modoEdicao = false;
 let sessaoEmEdicaoId = null;
 let dataAtivaSessao = today();
 
-// ─── AUXILIAR PARA TOKEN ──────────────────────────────────────────────────────
+//  AUXILIAR PARA TOKEN 
 function getAuthToken() {
   return localStorage.getItem('token') || localStorage.getItem('estudoos_token');
 }
 
-// ─── LOGOUT COMPLETO DA APLICAÇÃO ─────────────────────────────────────────────
+//  LOGOUT COMPLETO DA APLICAÇÃO 
 function fazerLogout() {
   localStorage.removeItem('token');
   localStorage.removeItem('estudoos_token');
@@ -24,7 +24,7 @@ function fazerLogout() {
   window.location.reload();
 }
 
-// ─── NAVEGAÇÃO ───────────────────────────────────────────────────────────────
+//  NAVEGAÇÃO 
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -60,10 +60,9 @@ function toggleTopics(id) {
   }
 }
 
-// ─── DATAS ──────────────────────
+//  DATAS 
 function today() {
   const d = new Date();
-  // Garante a extração da data local exata baseada no fuso do Brasil, evitando avanço de dia à noite
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -75,7 +74,7 @@ function dateStr(d) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────────────
+//  DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
 
@@ -134,7 +133,7 @@ async function renderDashboard() {
     const pl = document.getElementById('dash-progress-list');
     if (pl) {
       if (!materiasComTopicos.length) {
-        pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
+        pl.innerHTML = '<div class="empty"><div class="empty-icon"></div>Adicione matérias para ver o progresso</div>';
       } else {
         pl.innerHTML = materiasComTopicos.map((m, i) => {
           const lista = m.topicos || [];
@@ -205,7 +204,7 @@ async function irParaDataEspecifica(dataSelecionada) {
   showPage('hoje');
 }
 
-// ─── REVISÃO ESPAÇADA & FILA ─────────────────────────────────────────────────
+//  REVISÃO ESPAÇADA & FILA 
 async function renderRevisao() {
   if (!getAuthToken()) return;
 
@@ -235,8 +234,8 @@ async function renderRevisao() {
     if (!revisoesHojeEAtrasadas || !revisoesHojeEAtrasadas.length) {
       elFila.innerHTML = `
         <div class="empty">
-          <div class="empty-icon">🔄</div>
-          Nenhuma revisão pendente ou atrasada para hoje — continue estudando! 🎉
+          <div class="empty-icon"></div>
+          Nenhuma revisão pendente ou atrasada para hoje — continue estudando! 
         </div>`;
       return;
     }
@@ -257,14 +256,14 @@ async function renderRevisao() {
         <div style="padding:0.85rem 1rem; background:var(--surface2); border-radius:var(--radius); margin-bottom:0.5rem; display:flex; align-items:center; justify-content:space-between;">
           <div>
             <div style="font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center;">
-              📌 ${nomeTopico} ${tagStatus}
+               ${nomeTopico} ${tagStatus}
             </div>
             <div style="font-size:12px; color:var(--muted); margin-top:2px;">
-              📚 ${r.materiaNome || r.nomeMateria || 'Matéria'} · 📅 Agendada: ${dataFormatada}
+               ${r.materiaNome || r.nomeMateria || 'Matéria'} ·  Agendada: ${dataFormatada}
             </div>
           </div>
           <button class="btn sm primary" onclick="iniciarRevisaoNoCaderno(${r.id}, '${nomeTopico.replace(/'/g, "\\'")}')" style="cursor:pointer; background:var(--accent);">
-            🔄 Revisar agora
+             Revisar agora
           </button>
         </div>
       `;
@@ -302,7 +301,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
       const hojeDateEl = document.getElementById('hoje-date');
       if (hojeDateEl) {
         hojeDateEl.innerHTML = `<span style="background:rgba(108,123,255,0.15); color:var(--accent); border:1px solid var(--accent); padding:4px 10px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; margin-top:4px;">
-          🔁 REVISANDO AGORA: <b>${materiaNome}</b> → <i>${topicoEncontrado.nome}</i>
+           REVISANDO AGORA: <b>${materiaNome}</b>  <i>${topicoEncontrado.nome}</i>
         </span>`;
       }
 
@@ -312,7 +311,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
           <div class="topic-row concluido-banco" style="display:flex; align-items:center; gap:0.6rem; padding:0.6rem 0.8rem; background:var(--surface2); border-radius:var(--radius); border:1px solid var(--accent);">
             <div class="topic-check checked"></div>
             <div class="topic-name done" style="font-weight:700; color:var(--text);">
-              📌 ${topicoEncontrado.nome}
+               ${topicoEncontrado.nome}
             </div>
             <span style="font-size:11px; color:var(--accent); margin-left:auto; font-weight:600;">Modo Revisão</span>
           </div>`;
@@ -341,7 +340,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
 
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
-        btnSave.innerHTML = '✅ Concluir Revisão';
+        btnSave.innerHTML = ' Concluir Revisão';
         btnSave.style.background = '#34d399';
         btnSave.style.color = '#000';
       }
@@ -357,7 +356,7 @@ function resetaModoSalvarSessao() {
 
   const btnSave = document.getElementById('btn-save-session');
   if (btnSave) {
-    btnSave.innerHTML = '💾 Salvar sessão';
+    btnSave.innerHTML = ' Salvar sessão';
     btnSave.style.background = 'var(--accent)';
     btnSave.style.color = '#fff';
   }
@@ -387,7 +386,7 @@ async function saveSession() {
       });
 
       if (res.ok) {
-        alert("Revisão concluída e anotação atualizada com sucesso! 🧠✨");
+        alert("Revisão concluída e anotação atualizada com sucesso! ");
         resetaModoSalvarSessao();
         showPage('revisao');
       } else {
@@ -435,7 +434,7 @@ async function saveSession() {
     materiaId: parseInt(matId),
     topicosConcluidosIds: topicosSelecionadosLocalmente,
     anotacoes: notes,
-    dataSessao: today() // Garante explicitamente o envio da data correta e atual do dia
+    dataSessao: today()
   };
 
   try {
@@ -459,7 +458,7 @@ async function saveSession() {
   }
 }
 
-// ─── SESSÃO DE HOJE ──────────────────────────────────────────────────────────
+//  SESSÃO DE HOJE 
 async function renderHoje() {
   if (!getAuthToken()) return;
 
@@ -496,7 +495,7 @@ async function renderHoje() {
         await loadSessionTopics();
       } else {
         const topList = document.getElementById('session-topics-list');
-        if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+        if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon"></div>Selecione uma matéria acima</div>';
       }
       await renderHistoricoSessaoPorData(dataAtivaSessao);
     }
@@ -506,7 +505,6 @@ async function renderHoje() {
   }
 }
 
-// 🎯 CARREGA OS TÓPICOS FIXANDO A SELEÇÃO DA MATÉRIA
 async function loadSessionTopics() {
   if (revisaoAtiva) return;
 
@@ -516,7 +514,7 @@ async function loadSessionTopics() {
   if (!el) return;
 
   if (!matId) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon">📖</div>Selecione uma matéria acima</div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Selecione uma matéria acima</div>';
     return;
   }
 
@@ -527,7 +525,7 @@ async function loadSessionTopics() {
     const topicos = await res.json();
 
     if (!topicos || !topicos.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📂</div>Nenhum assunto cadastrado nesta matéria</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Nenhum assunto cadastrado nesta matéria</div>';
       return;
     }
 
@@ -567,7 +565,6 @@ async function irParaCadernoMateria(materiaId, topicoId) {
   await tratarCliqueTopico(topicoId, true, materiaId);
 }
 
-// 🟢 Carrega a sessão diretamente no caderno ao clicar no histórico
 async function carregarSessaoDiretaNoCaderno(sessaoId) {
   try {
     const resSessoes = await fetchComAuth('/sessoes');
@@ -592,7 +589,7 @@ async function carregarSessaoDiretaNoCaderno(sessaoId) {
 
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
-        btnSave.innerHTML = '🔄 Atualizar anotação';
+        btnSave.innerHTML = ' Atualizar anotação';
         btnSave.style.background = 'var(--accent)';
       }
     }
@@ -601,7 +598,6 @@ async function carregarSessaoDiretaNoCaderno(sessaoId) {
   }
 }
 
-// 🎯 TRATA O CLIQUE NO TÓPICO MANTENDO A MATÉRIA SELECIONADA
 async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
   const selMat = document.getElementById('session-mat');
 
@@ -630,7 +626,7 @@ async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
         }
 
         if (btnSave) {
-          btnSave.innerHTML = '🔄 Atualizar anotação';
+          btnSave.innerHTML = ' Atualizar anotação';
           btnSave.style.background = 'var(--accent)';
           btnSave.style.color = '#fff';
         }
@@ -704,7 +700,7 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
     const sessoesDaData = sessoesDoBanco.filter(s => s.dataSessao === dataFiltro);
 
     if (!sessoesDaData.length) {
-      hist.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
+      hist.innerHTML = `<div class="empty"><div class="empty-icon"></div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
       if (!revisaoAtiva) resetaModoSalvarSessao();
       return;
     }
@@ -729,7 +725,7 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
       sessaoEmEdicaoId = primeiraSessao.id;
       const btnSave = document.getElementById('btn-save-session');
       if (btnSave) {
-        btnSave.innerHTML = '🔄 Atualizar anotação';
+        btnSave.innerHTML = ' Atualizar anotação';
         btnSave.style.background = 'var(--accent)';
       }
     }
@@ -748,10 +744,10 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
       const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
 
       return `<div class="historico-card-destaque" style="cursor:pointer;" onclick="carregarSessaoDiretaNoCaderno(${s.id})">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;"> ${dataFormatada}</div>
         <div style="flex:1;">
           <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;"> ${textoAssuntos}</div>
         </div>
       </div>`;
     }).join('');
@@ -787,10 +783,10 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
 
     hist.innerHTML = `
       <div class="historico-card-destaque">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;"> ${dataFormatada}</div>
         <div style="flex:1;">
           <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📌 ${textoAssuntos}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;"> ${textoAssuntos}</div>
         </div>
       </div>
     `;
@@ -799,17 +795,17 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
   }
 }
 
-// ─── MATÉRIAS & CONTROLE DE PAINÉIS ──────────────────────────────────────────
+//  MATÉRIAS & CONTROLE DE PAINÉIS 
 function alternarModoEdicao() {
   modoEdicao = !modoEdicao;
 
   const btnGerenciar = document.querySelector("button[onclick='alternarModoEdicao()']");
   if (btnGerenciar) {
     if (modoEdicao) {
-      btnGerenciar.innerHTML = '✓ Concluir';
+      btnGerenciar.innerHTML = ' Concluir';
       btnGerenciar.classList.add('active-green');
     } else {
-      btnGerenciar.innerHTML = '✏️ Gerenciar';
+      btnGerenciar.innerHTML = ' Gerenciar';
       btnGerenciar.classList.remove('active-green');
     }
   }
@@ -817,7 +813,6 @@ function alternarModoEdicao() {
   renderMaterias();
 }
 
-// 🔄 Alterna o status do assunto (Concluído <-> Não Concluído) no modo Gerenciar
 async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
   const novoStatus = !statusAtual;
 
@@ -852,12 +847,34 @@ async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
     } else {
       const errorData = await res.json().catch(() => null);
       console.error("Erro retornado pelo servidor Java no PUT:", errorData);
-      alert("❌ Não foi possível alterar o status do assunto no servidor.");
+      alert(" Não foi possível alterar o status do assunto no servidor.");
     }
 
   } catch (error) {
     console.error("Erro ao alternar status do assunto:", error);
-    alert("❌ Erro de conexão ao atualizar o assunto.");
+    alert(" Erro de conexão ao atualizar o assunto.");
+  }
+}
+
+// 🤖 BOTÃO DE ORDENAR TÓPICOS COM IA
+async function ordenarComIa(materiaId) {
+  if (!confirm('Deseja que a Inteligência Artificial ordene os tópicos desta matéria do básico ao avançado?')) return;
+
+  try {
+    const res = await fetchComAuth(`/materias/${materiaId}/ordenar-ia`, {
+      method: 'POST'
+    });
+
+    if (res.ok) {
+      alert("✨ Tópicos ordenados com sucesso pelo Gemini!");
+      await renderMaterias();
+      await renderDashboard();
+    } else {
+      alert("❌ Erro ao ordenar tópicos com IA.");
+    }
+  } catch (e) {
+    console.error("Erro na chamada da IA:", e);
+    alert("❌ Erro de conexão com o servidor ao chamar a IA.");
   }
 }
 
@@ -874,7 +891,7 @@ async function renderMaterias() {
     state.materias = await res.json();
 
     if (!state.materias || !state.materias.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Nenhuma matéria cadastrada ainda</div>';
       return;
     }
 
@@ -896,10 +913,12 @@ async function renderMaterias() {
       const pct = tot ? Math.round(done / tot * 100) : 0;
       const color = m.cor || COLORS[i % COLORS.length];
 
+      // O botão de IA e os botões de ação SÓ aparecem se o modoEdicao for true (Gerenciar ativado)
       const botoesAcaoMateria = modoEdicao ? `
-        <div class="actions-edicao" style="display:flex; gap:.4rem; margin-left:auto;">
-          <button class="btn sm" onclick="event.stopPropagation(); openEditMateriaPanel('${m.id}', '${m.nome}')" title="Editar matéria">✏️</button>
-          <button class="btn sm danger" onclick="event.stopPropagation(); deleteMateria('${m.id}')" title="Excluir matéria">🗑️</button>
+        <div class="actions-edicao" style="display:flex; gap:.4rem; margin-left:auto; align-items:center;">
+          <button class="btn sm" onclick="event.stopPropagation(); ordenarComIa('${m.id}')" title="Ordenar tópicos com IA do básico ao avançado" style="background:var(--surface3); color:var(--accent); font-size:11px; padding:4px 10px;">🤖 IA</button>
+          <button class="btn sm" onclick="event.stopPropagation(); openEditMateriaPanel('${m.id}', '${m.nome}')" title="Editar matéria" style="background:var(--surface3);">✏️</button>
+          <button class="btn sm danger" onclick="event.stopPropagation(); deleteMateria('${m.id}')" title="Excluir matéria" style="background:var(--coral); color:#fff;">🗑️</button>
         </div>
       ` : '';
 
@@ -919,8 +938,8 @@ async function renderMaterias() {
 
         const botoesAcaoTopico = modoEdicao ? `
               <div style="display:flex; gap:.3rem; margin-left:auto;">
-                <button class="btn sm" onclick="event.stopPropagation(); openEditTopicoPanel('${t.id}', '${t.nome}')" title="Renomear assunto">✏️</button>
-                <button class="btn sm danger" onclick="event.stopPropagation(); deleteTopico('${t.id}')" title="Apagar assunto">🗑️</button>
+                <button class="btn sm" onclick="event.stopPropagation(); openEditTopicoPanel('${t.id}', '${t.nome}')" title="Renomear assunto" style="background:var(--surface3);">✏️</button>
+                <button class="btn sm danger" onclick="event.stopPropagation(); deleteTopico('${t.id}')" title="Apagar assunto" style="background:var(--coral); color:#fff;">🗑️</button>
               </div>
             ` : '';
 
@@ -1115,7 +1134,7 @@ async function deleteTopico(idTopico) {
   }
 }
 
-// ─── QUESTÕES ─────────────────────────────────────────────────────────────────
+//  QUESTÕES 
 function openAddQuestion() {
   const panel = document.getElementById('question-panel');
   if (panel) panel.style.display = 'block';
@@ -1130,7 +1149,7 @@ function renderQuestoes() {
   state.questions = JSON.parse(localStorage.getItem('studyos_v2_questions') || '[]');
 }
 
-// ─── POMODORO ─────────────────────────────────────────────────────────────────
+//  POMODORO 
 const POMO_MODES = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
 let pomoTimer = null;
 let pomoMode = 'work';
@@ -1145,7 +1164,7 @@ function updatePomoDisplay() {
   const disp = document.getElementById('pomo-display');
   if (disp) disp.textContent = `${m}:${s}`;
 
-  document.title = `${m}:${s} - Estudando 🧠`;
+  document.title = `${m}:${s} - Estudando `;
 }
 
 function setPomoMode(mode) {
@@ -1160,7 +1179,7 @@ function setPomoMode(mode) {
   }
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = '▶ Iniciar';
+  if (btn) btn.innerHTML = ' Iniciar';
 
   const label = document.getElementById('pomo-label');
   if (label) {
@@ -1186,10 +1205,10 @@ function togglePomo() {
   if (pomoRunning) {
     clearInterval(pomoTimer);
     pomoRunning = false;
-    if (btn) btn.innerHTML = '▶ Continuar';
+    if (btn) btn.innerHTML = ' Continuar';
   } else {
     pomoRunning = true;
-    if (btn) btn.innerHTML = '⏸ Pausar';
+    if (btn) btn.innerHTML = ' Pausar';
 
     pomoTimer = setInterval(() => {
       if (pomoSeconds > 0) {
@@ -1210,7 +1229,7 @@ function resetPomo() {
   pomoSeconds = POMO_MODES[pomoMode];
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = '▶ Iniciar';
+  if (btn) btn.innerHTML = ' Iniciar';
 
   updatePomoDisplay();
 }
@@ -1219,7 +1238,7 @@ async function finalizarCicloPomodoro() {
   tocarAlarmeFimCiclo();
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = '▶ Iniciar';
+  if (btn) btn.innerHTML = ' Iniciar';
 
   if (pomoMode === 'work') {
     pomoCompletedCount++;
@@ -1227,11 +1246,11 @@ async function finalizarCicloPomodoro() {
     const countEl = document.getElementById('pomo-count');
     if (countEl) countEl.textContent = pomoCompletedCount;
 
-    alert("🎉 Parabéns! Ciclo de foco de 25 minutos concluído! Hora de descansar 5 minutos.");
+    alert(" Parabéns! Ciclo de foco de 25 minutos concluído! Hora de descansar 5 minutos.");
 
     setPomoMode('short');
   } else {
-    alert("☕ Pausa finalizada! Pronto para o próximo ciclo de foco?");
+    alert(" Pausa finalizada! Pronto para o próximo ciclo de foco?");
     setPomoMode('work');
   }
 }
@@ -1256,7 +1275,7 @@ function tocarAlarmeFimCiclo() {
   }
 }
 
-// ─── CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO ────────────────────────────────
+//  CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO 
 function verificarAutenticacaoEInicializar() {
   const token = getAuthToken();
   const usuarioRaw = localStorage.getItem('usuario') || localStorage.getItem('estudoos_usuario');
@@ -1275,8 +1294,8 @@ function verificarAutenticacaoEInicializar() {
       const greetingEl = document.getElementById('dash-greeting');
       const userDisplayEl = document.getElementById('user-display');
 
-      if (greetingEl) greetingEl.textContent = `Bom estudo, ${usuario.nome}! 👋`;
-      if (userDisplayEl) userDisplayEl.textContent = `👤 ${usuario.nome}`;
+      if (greetingEl) greetingEl.textContent = `Bom estudo, ${usuario.nome}! `;
+      if (userDisplayEl) userDisplayEl.textContent = ` ${usuario.nome}`;
     } catch (e) {
       console.error("Erro ao carregar dados do usuário:", e);
     }
@@ -1290,7 +1309,7 @@ function verificarAutenticacaoEInicializar() {
   updatePomoDisplay();
 }
 
-// ─── INIT & LISTENERS ────────────────────────────────/────────────────────────
+//  INIT & LISTENERS /
 document.addEventListener('DOMContentLoaded', () => {
   const dashDateEl = document.getElementById('dash-date');
   if (dashDateEl) {

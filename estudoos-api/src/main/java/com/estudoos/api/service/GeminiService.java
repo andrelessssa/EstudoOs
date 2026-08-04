@@ -25,40 +25,59 @@ public class GeminiService {
     }
 
     public String ordenarTopicosComIa(String nomeDisciplina, List<String> topicos) {
-        // Usando o modelo atualizado e ativo gemini-3.6-flash
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + apiKey;
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return String.join("\n", topicos);
+        }
+
+        String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
 
         String prompt = "Você é um especialista em pedagogia e concursos públicos. " +
                 "A disciplina é: " + nomeDisciplina + ". " +
-                "Ordene a seguinte lista de tópicos rigorosamente do nível básico ao avançado, " +
+                "Ordene rigorosamente a seguinte lista de tópicos do nível básico ao avançado, " +
                 "seguindo a ordem pedagógica padrão dos editais de concurso. " +
                 "Retorne apenas os nomes dos tópicos ordenados, um por linha, sem numeração extra ou introduções: " + topicos;
 
         String requestBody = """
             {
-              "contents": [{
-                "parts": [{
-                  "text": "%s"
-                }]
-              }]
+              "model": "gemini-3.6-flash",
+              "input": "%s"
             }
             """.formatted(prompt.replace("\"", "\\\"").replace("\n", " "));
 
         try {
             String jsonResponse = restClient.post()
                     .uri(url)
+                    .header("x-goog-api-key", apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
 
+            System.out.println("🤖 RESPOSTA CRUA DO GEMINI: " + jsonResponse);
+
             JsonNode root = objectMapper.readTree(jsonResponse);
-            return root.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+            
+            // Extrai o texto da nova estrutura de steps -> content -> text
+            JsonNode steps = root.path("steps");
+            if (steps.isArray() && !steps.isEmpty()) {
+                for (JsonNode step : steps) {
+                    JsonNode contentArray = step.path("content");
+                    if (contentArray.isArray() && !contentArray.isEmpty()) {
+                        for (JsonNode content : contentArray) {
+                            String texto = content.path("text").asText();
+                            if (texto != null && !texto.trim().isEmpty()) {
+                                return texto;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return String.join("\n", topicos);
 
         } catch (Exception e) {
-            System.err.println("❌ ERRO DETALHADO AO CHAMAR O GEMINI: " + e.getMessage());
+            System.err.println("❌ ERRO COMPLETO NA CHAMADA DO GEMINI: " + e.getMessage());
             e.printStackTrace();
-            // Retorna a lista original como fallback se a IA falhar
             return String.join("\n", topicos);
         }
     }

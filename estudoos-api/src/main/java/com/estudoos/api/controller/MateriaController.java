@@ -68,4 +68,9 @@ public class MateriaController {
         materiaService.deletarMateriaPorEmail(id, principal.getName());
         return ResponseEntity.noContent().build();
     }
+ @PostMapping("/{id}/ordenar-ia")
+    public ResponseEntity<String> ordenarComIa(@PathVariable Long id) {
+        String resultado = materiaService.ordenarTopicosComIa(id);
+        return ResponseEntity.ok(resultado);
+    }
 }
