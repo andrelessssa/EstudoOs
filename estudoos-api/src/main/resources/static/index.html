@@ -22,6 +22,7 @@
     <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
     <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
     <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+    <div class="tab" onclick="showPage('concurso')">🎯 Concurso</div>
     <!-- 🟢 Aba alterada para "Cadastrar" -->
     <div class="tab" id="tab-perfil" onclick="showPage('perfil')">👤 Cadastrar</div>
 
@@ -432,6 +433,100 @@
         </div>
         <div id="msg-edit-status" style="font-size: 0.85rem; margin-top: 0.75rem; text-align: center;"></div>
       </div>
+    </div>
+  </div>
+  <!-- ═══ ANÁLISE DE CONCURSO 🎯 ═══ -->
+  <div id="page-concurso" class="page">
+    <div class="section-header">
+      <div class="section-title">Análise de Edital de Concurso</div>
+      <div style="font-size:12px;color:var(--muted);">Gerencie múltiplos editais, contagens regressivas e tópicos</div>
+    </div>
+
+    <!-- FORMULÁRIO DE CADASTRO (FIXO NO TOPO) -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-title">⚙️ Cadastrar Novo Edital</div>
+      <div class="form-group">
+        <label>Nome do Concurso</label>
+        <input id="c-nome" type="text" placeholder="Ex: SEPLAG - Analista de Sistemas" />
+      </div>
+      <div class="form-group">
+        <label>Data e Hora da Prova</label>
+        <input id="c-data" type="datetime-local" />
+      </div>
+      <div class="form-group">
+        <label>Cole o Texto do Edital</label>
+        <textarea id="c-edital" rows="4"
+          placeholder="Cole o conteúdo do edital para extração dos tópicos..."></textarea>
+      </div>
+      <button class="btn primary" id="btn-processar-edital" style="background: var(--accent); color: white;">🤖
+        Processar e Adicionar Concurso</button>
+    </div>
+
+    <!-- CONTAINER DOS CONCURSOS (JÁ COM UM MODELO FIXO VISÍVEL) -->
+    <div id="lista-concursos-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+      <!-- 📦 BLOCO MODELO DE CONCURSO -->
+      <div class="card" style="border: 1px solid var(--border); position: relative;">
+
+        <!-- Cabeçalho do Concurso com Título e Botão Excluir -->
+        <div
+          style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+          <div>
+            <span
+              style="font-size: 0.75rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; display: block;">Concurso
+              Analisado</span>
+            <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">Exemplo: SEPLAG - Analista de Sistemas (Modelo)</h3>
+          </div>
+          <button class="btn sm"
+            style="background: var(--surface3); color: var(--coral); border: 1px solid var(--border);"
+            onclick="this.closest('.card').remove()">🗑️ Excluir Concurso</button>
+        </div>
+
+        <!-- Os Dois Cards de Painel Lado a Lado -->
+        <div class="grid-2" style="margin-bottom: 1.25rem;">
+          <div class="card"
+            style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--amber); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">⏳ Tempo Restante para a Prova</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: #fff;">120 Dias 14:30
+            </div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">Prova: 10/12/2026 08:00</div>
+          </div>
+
+          <div class="card"
+            style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--green); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">📊 Status da Cobertura</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: var(--green);">0%</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">0 de 15 assuntos cadastrados
+            </div>
+          </div>
+        </div>
+
+        <!-- Listagem de Tópicos do Edital -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted);">📋 Matérias e Assuntos
+              Extraídos</span>
+            <span style="background: var(--surface3); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">15
+              itens</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div
+              style="display: flex; justify-content: space-between; align-items: center; background: var(--surface2); padding: 0.75rem 1rem; border-radius: var(--radius); border: 1px solid var(--border);">
+              <div>
+                <strong style="color: var(--accent); font-size: 0.85rem; display: block;">Engenharia de
+                  Software</strong>
+                <span style="font-size: 0.9rem; color: var(--text);">Metodologias Ágeis (Scrum / Kanban)</span>
+              </div>
+              <span
+                style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: var(--coral); padding: 3px 8px; border-radius: 4px;">Pendente
+                no Banco</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </div>
   <!-- 🟢 SCRIPTS -->
