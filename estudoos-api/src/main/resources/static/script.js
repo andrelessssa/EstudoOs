@@ -32,7 +32,8 @@ function showPage(id) {
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
 
-  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'concurso', 'perfil'];
+  // Adicione 'cadastrar' na ordem correta das abas do menu
+  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'concurso', 'cadastrar', 'perfil'];
   const idx = pages.indexOf(id);
   if (idx !== -1) {
     const tabs = document.querySelectorAll('.tab');
@@ -48,7 +49,7 @@ function showPage(id) {
   if (id === 'hoje') renderHoje();
   if (id === 'revisao') renderRevisao();
   if (id === 'questoes') renderQuestoes();
-  if (id === 'perfil' && typeof aplicarControleAcesso === 'function') {
+  if (id === 'cadastrar' && typeof aplicarControleAcesso === 'function') {
     aplicarControleAcesso();
   }
 }
