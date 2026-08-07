@@ -207,4 +207,26 @@ public class SessaoEstudoService {
         Usuario usuario = obterUsuarioPorEmail(email);
         atualizarAnotacoesSessao(id, novasAnotacoes, usuario.getId());
     }
+    
+    // 📊 7. Relatório enxuto com Java Streams
+    @Transactional(readOnly = true)
+    public java.util.Map<String, java.util.List<String>> obterRelatorioSimuladoPorUsuario(Long usuarioId, String periodo) {
+        int dias = "mes".equalsIgnoreCase(periodo) ? 30 : 7;
+        LocalDate dataLimite = LocalDate.now(FUSO_MACEIO).minusDays(dias);
+
+        return sessaoEstudoRepository.findByUsuarioIdAndDataSessaoGreaterThanEqual(usuarioId, dataLimite).stream()
+                .collect(Collectors.groupingBy(
+                    s -> s.getMateria() != null ? s.getMateria().getNome() : "Geral",
+                    Collectors.flatMapping(
+                        s -> s.getTopicos() != null ? s.getTopicos().stream().map(Topico::getNome) : java.util.stream.Stream.empty(),
+                        Collectors.collectingAndThen(Collectors.toSet(), java.util.ArrayList::new)
+                    )
+                ));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, java.util.List<String>> obterRelatorioSimuladoPorEmail(String email, String periodo) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        return obterRelatorioSimuladoPorUsuario(usuario.getId(), periodo);
+    }
 }

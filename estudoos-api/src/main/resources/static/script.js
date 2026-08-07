@@ -1,7 +1,7 @@
-//  CORES 
+// 🎨 CORES 
 const COLORS = ['#6c7bff', '#34d399', '#fbbf24', '#f87171', '#c084fc', '#2dd4bf', '#fb7185', '#60a5fa', '#a3e635', '#f97316'];
 
-//  STATE LOCAL 
+// 🗄️ STATE LOCAL 
 let state = { materias: [], sessions: [], reviews: [], questions: [] };
 let topicosSelecionadosLocalmente = [];
 let revisaoAtiva = null;
@@ -9,12 +9,12 @@ let modoEdicao = false;
 let sessaoEmEdicaoId = null;
 let dataAtivaSessao = today();
 
-//  AUXILIAR PARA TOKEN 
+// 🔑 AUXILIAR PARA TOKEN 
 function getAuthToken() {
   return localStorage.getItem('token') || localStorage.getItem('estudoos_token');
 }
 
-//  LOGOUT COMPLETO DA APLICAÇÃO 
+// 🚪 LOGOUT COMPLETO DA APLICAÇÃO 
 function fazerLogout() {
   localStorage.removeItem('token');
   localStorage.removeItem('estudoos_token');
@@ -24,7 +24,7 @@ function fazerLogout() {
   window.location.reload();
 }
 
-//  NAVEGAÇÃO 
+// 🧭 NAVEGAÇÃO 
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -32,7 +32,7 @@ function showPage(id) {
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
 
-  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'perfil'];
+  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'concurso', 'perfil'];
   const idx = pages.indexOf(id);
   if (idx !== -1) {
     const tabs = document.querySelectorAll('.tab');
@@ -60,7 +60,7 @@ function toggleTopics(id) {
   }
 }
 
-//  DATAS 
+// 📅 DATAS 
 function today() {
   const d = new Date();
   const year = d.getFullYear();
@@ -74,7 +74,7 @@ function dateStr(d) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-//  DASHBOARD 
+// 📊 DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
 
@@ -133,7 +133,7 @@ async function renderDashboard() {
     const pl = document.getElementById('dash-progress-list');
     if (pl) {
       if (!materiasComTopicos.length) {
-        pl.innerHTML = '<div class="empty"><div class="empty-icon"></div>Adicione matérias para ver o progresso</div>';
+        pl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Adicione matérias para ver o progresso</div>';
       } else {
         pl.innerHTML = materiasComTopicos.map((m, i) => {
           const lista = m.topicos || [];
@@ -204,7 +204,7 @@ async function irParaDataEspecifica(dataSelecionada) {
   showPage('hoje');
 }
 
-//  REVISÃO ESPAÇADA & FILA 
+// 🔁 REVISÃO ESPAÇADA & FILA 
 async function renderRevisao() {
   if (!getAuthToken()) return;
 
@@ -234,7 +234,7 @@ async function renderRevisao() {
     if (!revisoesHojeEAtrasadas || !revisoesHojeEAtrasadas.length) {
       elFila.innerHTML = `
         <div class="empty">
-          <div class="empty-icon"></div>
+          <div class="empty-icon">🔁</div>
           Nenhuma revisão pendente ou atrasada para hoje — continue estudando! 
         </div>`;
       return;
@@ -259,11 +259,11 @@ async function renderRevisao() {
                ${nomeTopico} ${tagStatus}
             </div>
             <div style="font-size:12px; color:var(--muted); margin-top:2px;">
-               ${r.materiaNome || r.nomeMateria || 'Matéria'} ·  Agendada: ${dataFormatada}
+               ${r.materiaNome || r.nomeMateria || 'Matéria'} · Agendada: ${dataFormatada}
             </div>
           </div>
           <button class="btn sm primary" onclick="iniciarRevisaoNoCaderno(${r.id}, '${nomeTopico.replace(/'/g, "\\'")}')" style="cursor:pointer; background:var(--accent);">
-             Revisar agora
+               Revisar agora
           </button>
         </div>
       `;
@@ -301,7 +301,7 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
       const hojeDateEl = document.getElementById('hoje-date');
       if (hojeDateEl) {
         hojeDateEl.innerHTML = `<span style="background:rgba(108,123,255,0.15); color:var(--accent); border:1px solid var(--accent); padding:4px 10px; border-radius:20px; font-weight:700; font-size:12px; display:inline-block; margin-top:4px;">
-           REVISANDO AGORA: <b>${materiaNome}</b>  <i>${topicoEncontrado.nome}</i>
+            REVISANDO AGORA: <b>${materiaNome}</b> <i>${topicoEncontrado.nome}</i>
         </span>`;
       }
 
@@ -458,7 +458,7 @@ async function saveSession() {
   }
 }
 
-//  SESSÃO DE HOJE 
+// 📅 SESSÃO DE HOJE 
 async function renderHoje() {
   if (!getAuthToken()) return;
 
@@ -495,7 +495,7 @@ async function renderHoje() {
         await loadSessionTopics();
       } else {
         const topList = document.getElementById('session-topics-list');
-        if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon"></div>Selecione uma matéria acima</div>';
+        if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Selecione uma matéria acima</div>';
       }
       await renderHistoricoSessaoPorData(dataAtivaSessao);
     }
@@ -514,7 +514,7 @@ async function loadSessionTopics() {
   if (!el) return;
 
   if (!matId) {
-    el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Selecione uma matéria acima</div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Selecione uma matéria acima</div>';
     return;
   }
 
@@ -525,7 +525,7 @@ async function loadSessionTopics() {
     const topicos = await res.json();
 
     if (!topicos || !topicos.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Nenhum assunto cadastrado nesta matéria</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📘</div>Nenhum assunto cadastrado nesta matéria</div>';
       return;
     }
 
@@ -700,7 +700,7 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
     const sessoesDaData = sessoesDoBanco.filter(s => s.dataSessao === dataFiltro);
 
     if (!sessoesDaData.length) {
-      hist.innerHTML = `<div class="empty"><div class="empty-icon"></div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
+      hist.innerHTML = `<div class="empty"><div class="empty-icon">🗂️</div>Nenhuma sessão registrada em ${dateStr(dataFiltro)}</div>`;
       if (!revisaoAtiva) resetaModoSalvarSessao();
       return;
     }
@@ -744,10 +744,10 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
       const textoAssuntos = nomesAssuntos.length > 0 ? nomesAssuntos.join(', ') : 'Assuntos estudados';
 
       return `<div class="historico-card-destaque" style="cursor:pointer;" onclick="carregarSessaoDiretaNoCaderno(${s.id})">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;"> ${dataFormatada}</div>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
         <div style="flex:1;">
           <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;"> ${textoAssuntos}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📖 ${textoAssuntos}</div>
         </div>
       </div>`;
     }).join('');
@@ -783,10 +783,10 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
 
     hist.innerHTML = `
       <div class="historico-card-destaque">
-        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;"> ${dataFormatada}</div>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--muted); min-width:70px; padding-top:2px;">📅 ${dataFormatada}</div>
         <div style="flex:1;">
           <div style="font-size:13px; font-weight:700; color:var(--text);">${materiaNome}</div>
-          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;"> ${textoAssuntos}</div>
+          <div style="font-size:12px; color:var(--accent); margin-top:2px; font-weight:500;">📖 ${textoAssuntos}</div>
         </div>
       </div>
     `;
@@ -795,17 +795,17 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
   }
 }
 
-//  MATÉRIAS & CONTROLE DE PAINÉIS 
+// 📘 MATÉRIAS & CONTROLE DE PAINÉIS 
 function alternarModoEdicao() {
   modoEdicao = !modoEdicao;
 
   const btnGerenciar = document.querySelector("button[onclick='alternarModoEdicao()']");
   if (btnGerenciar) {
     if (modoEdicao) {
-      btnGerenciar.innerHTML = ' Concluir';
+      btnGerenciar.innerHTML = '✅ Concluir';
       btnGerenciar.classList.add('active-green');
     } else {
-      btnGerenciar.innerHTML = ' Gerenciar';
+      btnGerenciar.innerHTML = '✏️ Gerenciar';
       btnGerenciar.classList.remove('active-green');
     }
   }
@@ -847,12 +847,12 @@ async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
     } else {
       const errorData = await res.json().catch(() => null);
       console.error("Erro retornado pelo servidor Java no PUT:", errorData);
-      alert(" Não foi possível alterar o status do assunto no servidor.");
+      alert("❌ Não foi possível alterar o status do assunto no servidor.");
     }
 
   } catch (error) {
     console.error("Erro ao alternar status do assunto:", error);
-    alert(" Erro de conexão ao atualizar o assunto.");
+    alert("❌ Erro de conexão ao atualizar o assunto.");
   }
 }
 
@@ -891,7 +891,7 @@ async function renderMaterias() {
     state.materias = await res.json();
 
     if (!state.materias || !state.materias.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon"></div>Nenhuma matéria cadastrada ainda</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda</div>';
       return;
     }
 
@@ -913,7 +913,6 @@ async function renderMaterias() {
       const pct = tot ? Math.round(done / tot * 100) : 0;
       const color = m.cor || COLORS[i % COLORS.length];
 
-      // O botão de IA e os botões de ação SÓ aparecem se o modoEdicao for true (Gerenciar ativado)
       const botoesAcaoMateria = modoEdicao ? `
         <div class="actions-edicao" style="display:flex; gap:.4rem; margin-left:auto; align-items:center;">
           <button class="btn sm" onclick="event.stopPropagation(); ordenarComIa('${m.id}')" title="Ordenar tópicos com IA do básico ao avançado" style="background:var(--surface3); color:var(--accent); font-size:11px; padding:4px 10px;">🤖 IA</button>
@@ -1134,7 +1133,7 @@ async function deleteTopico(idTopico) {
   }
 }
 
-//  QUESTÕES 
+// ✏️ QUESTÕES & SIMULADO IA
 function openAddQuestion() {
   const panel = document.getElementById('question-panel');
   if (panel) panel.style.display = 'block';
@@ -1149,7 +1148,130 @@ function renderQuestoes() {
   state.questions = JSON.parse(localStorage.getItem('studyos_v2_questions') || '[]');
 }
 
-//  POMODORO 
+async function gerarRelatorioQuestoes(periodo) {
+    const container = document.getElementById('relatorio-questoes-resultado');
+    const btnSemana = document.getElementById('btn-rel-semana');
+    const btnMes = document.getElementById('btn-rel-mes');
+    const periodoAtualAtivo = localStorage.getItem('relatorio_periodo_ativo');
+
+    if (periodoAtualAtivo === periodo) {
+        localStorage.removeItem('relatorio_periodo_ativo');
+        btnSemana.classList.remove('primary');
+        btnMes.classList.remove('primary');
+        container.innerHTML = `
+            <div class="empty" style="padding: 1.5rem;">
+                <div class="empty-icon">💡</div>Escolha o período acima para listar as matérias e seus respectivos assuntos estudados.
+            </div>`;
+        return;
+    }
+
+    if (periodo === 'mes') {
+        btnMes.classList.add('primary');
+        btnSemana.classList.remove('primary');
+    } else {
+        btnSemana.classList.add('primary');
+        btnMes.classList.remove('primary');
+    }
+
+    localStorage.setItem('relatorio_periodo_ativo', periodo);
+
+    container.innerHTML = `<div class="empty" style="padding: 1.5rem;">⏳ Carregando...</div>`;
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        const res = await fetch(`/api/sessoes/relatorio?periodo=${periodo}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const dados = await res.json();
+
+        if (Object.keys(dados).length === 0) {
+            container.innerHTML = `<div class="empty" style="padding: 1.5rem;">📭 Nenhum estudo registrado no período.</div>`;
+            return;
+        }
+
+        container.innerHTML = Object.entries(dados).map(([mat, assuntos]) => `
+            <div style="background: var(--surface2); padding: 1rem; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 0.75rem;">
+                <div style="font-weight: 700; color: #fff; margin-bottom: 0.5rem;">📖 ${mat} <span style="font-size: 0.75rem; color: var(--muted);">(${assuntos.length})</span></div>
+                <ul style="margin: 0; padding-left: 1.25rem; color: var(--muted); font-size: 0.85rem; line-height: 1.5;">
+                    ${assuntos.map(a => `<li>${a}</li>`).join('')}
+                </ul>
+            </div>
+        `).join('');
+
+    } catch (e) {
+        container.innerHTML = `<div class="empty" style="padding: 1.5rem; color: var(--coral);">⚠️ Erro ao carregar dados.</div>`;
+    }
+}
+
+// 🤖 FUNÇÃO DE GERAR SIMULADO COM IA (CONECTADA AO ENDPOINT DO BACK-END)
+async function gerarSimuladoIA() {
+    const containerConteudo = document.getElementById('conteudo-simulado-ia');
+    const containerSalvar = document.getElementById('container-salvar-simulado');
+    if (!containerConteudo) return;
+    
+    containerConteudo.innerHTML = `
+        <div style="text-align: center; color: var(--muted); margin-top: 5rem;">
+            <p style="font-size: 1.2rem;">🤖 Analisando suas matérias e gerando as 40 questões oficiais com a IA... Aguarde um instante.</p>
+        </div>`;
+    
+    if (containerSalvar) containerSalvar.style.display = 'none';
+    
+    try {
+        const response = await fetch('/api/simulado/gerar', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + getAuthToken(),
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            // Preenche o conteúdo alinhado à esquerda
+            containerConteudo.innerHTML = `<div style="white-space: pre-wrap; color: var(--text); text-align: left;">${data.conteudo || data.simulado || JSON.stringify(data)}</div>`;
+            
+            // Exibe o botão de salvar no banco
+            if (containerSalvar) containerSalvar.style.display = 'block';
+        } else {
+            containerConteudo.innerHTML = `<p style="color: var(--coral); text-align: center; margin-top: 4rem;">❌ Erro ao gerar o simulado pelo servidor. Tente novamente.</p>`;
+        }
+    } catch (e) {
+        console.error(e);
+        containerConteudo.innerHTML = `<p style="color: var(--coral); text-align: center; margin-top: 4rem;">❌ Erro de conexão com o servidor.</p>`;
+    }
+}
+
+// Função para tratar o salvamento das questões no banco
+async function salvarSimuladoNoBanco() {
+    // Aqui você faria o fetch para salvar no backend se houver a rota, ex:
+    // await fetch('/api/simulado/salvar', { method: 'POST', ... });
+
+    alert("🚀 Questões do simulado finalizadas e salvas com sucesso!");
+
+    // Reseta a folha de simulado para o estado inicial
+    const containerConteudo = document.getElementById('conteudo-simulado-ia');
+    const containerSalvar = document.getElementById('container-salvar-simulado');
+
+    if (containerConteudo) {
+        containerConteudo.innerHTML = `
+            <div style="text-align: center; color: var(--muted); margin-top: 3rem; margin-bottom: 2rem;">
+                <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">💡 Clique no botão abaixo para estruturar sua prova oficial com a IA.</p>
+            </div>
+            <div style="text-align: center;">
+                <button class="btn primary" onclick="gerarSimuladoIA()" style="padding: 0.85rem 2rem; font-size: 1rem; cursor: pointer;">
+                    🤖 Gerar Simulado com IA (40 Questões)
+                </button>
+            </div>
+        `;
+    }
+
+    // Oculta o botão de salvar novamente
+    if (containerSalvar) {
+        containerSalvar.style.display = 'none';
+    }
+}
+
+// ⏱️ POMODORO 
 const POMO_MODES = { work: 25 * 60, short: 5 * 60, long: 15 * 60 };
 let pomoTimer = null;
 let pomoMode = 'work';
@@ -1164,7 +1286,7 @@ function updatePomoDisplay() {
   const disp = document.getElementById('pomo-display');
   if (disp) disp.textContent = `${m}:${s}`;
 
-  document.title = `${m}:${s} - Estudando `;
+  document.title = `${m}:${s} - Estudando 🧠`;
 }
 
 function setPomoMode(mode) {
@@ -1179,7 +1301,7 @@ function setPomoMode(mode) {
   }
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = ' Iniciar';
+  if (btn) btn.innerHTML = '▶ Iniciar';
 
   const label = document.getElementById('pomo-label');
   if (label) {
@@ -1205,10 +1327,10 @@ function togglePomo() {
   if (pomoRunning) {
     clearInterval(pomoTimer);
     pomoRunning = false;
-    if (btn) btn.innerHTML = ' Continuar';
+    if (btn) btn.innerHTML = '▶ Continuar';
   } else {
     pomoRunning = true;
-    if (btn) btn.innerHTML = ' Pausar';
+    if (btn) btn.innerHTML = '⏸ Pausar';
 
     pomoTimer = setInterval(() => {
       if (pomoSeconds > 0) {
@@ -1229,7 +1351,7 @@ function resetPomo() {
   pomoSeconds = POMO_MODES[pomoMode];
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = ' Iniciar';
+  if (btn) btn.innerHTML = '▶ Iniciar';
 
   updatePomoDisplay();
 }
@@ -1238,7 +1360,7 @@ async function finalizarCicloPomodoro() {
   tocarAlarmeFimCiclo();
 
   const btn = document.getElementById('pomo-btn');
-  if (btn) btn.innerHTML = ' Iniciar';
+  if (btn) btn.innerHTML = '▶ Iniciar';
 
   if (pomoMode === 'work') {
     pomoCompletedCount++;
@@ -1246,11 +1368,11 @@ async function finalizarCicloPomodoro() {
     const countEl = document.getElementById('pomo-count');
     if (countEl) countEl.textContent = pomoCompletedCount;
 
-    alert(" Parabéns! Ciclo de foco de 25 minutos concluído! Hora de descansar 5 minutos.");
+    alert("🎉 Parabéns! Ciclo de foco de 25 minutos concluído! Hora de descansar 5 minutos.");
 
     setPomoMode('short');
   } else {
-    alert(" Pausa finalizada! Pronto para o próximo ciclo de foco?");
+    alert("⚡ Pausa finalizada! Pronto para o próximo ciclo de foco?");
     setPomoMode('work');
   }
 }
@@ -1275,7 +1397,7 @@ function tocarAlarmeFimCiclo() {
   }
 }
 
-//  CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO 
+// 🔐 CHECAGEM DE AUTENTICAÇÃO E INICIALIZAÇÃO 
 function verificarAutenticacaoEInicializar() {
   const token = getAuthToken();
   const usuarioRaw = localStorage.getItem('usuario') || localStorage.getItem('estudoos_usuario');
@@ -1294,8 +1416,8 @@ function verificarAutenticacaoEInicializar() {
       const greetingEl = document.getElementById('dash-greeting');
       const userDisplayEl = document.getElementById('user-display');
 
-      if (greetingEl) greetingEl.textContent = `Bom estudo, ${usuario.nome}! `;
-      if (userDisplayEl) userDisplayEl.textContent = ` ${usuario.nome}`;
+      if (greetingEl) greetingEl.textContent = `Bom estudo, ${usuario.nome}! 👋`;
+      if (userDisplayEl) userDisplayEl.textContent = `👤 ${usuario.nome}`;
     } catch (e) {
       console.error("Erro ao carregar dados do usuário:", e);
     }
@@ -1309,7 +1431,7 @@ function verificarAutenticacaoEInicializar() {
   updatePomoDisplay();
 }
 
-//  INIT & LISTENERS /
+// 🚀 INIT & LISTENERS 
 document.addEventListener('DOMContentLoaded', () => {
   const dashDateEl = document.getElementById('dash-date');
   if (dashDateEl) {

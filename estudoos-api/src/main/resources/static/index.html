@@ -39,7 +39,6 @@
     <div class="auth-card">
       <div style="text-align: center; margin-bottom: 1.5rem;">
         <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Estudo<span style="color: var(--accent);">OS</span></h2>
-        <!-- 🟢 Texto "Acesso Restrito" removido daqui -->
       </div>
 
       <!-- Form Login -->
@@ -253,6 +252,23 @@
       <div class="section-title">Banco de Questões</div>
       <button class="btn primary" onclick="openAddQuestion()">+ Adicionar questão</button>
     </div>
+    
+    <!-- 📊 CARD DE RELATÓRIO PARA SIMULADO -->
+    <div class="card" style="margin-top: 1.5rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div class="card-title" style="margin: 0;">📊 Relatório de Assuntos para Simulado</div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button id="btn-rel-semana" class="btn sm primary" onclick="gerarRelatorioQuestoes('semana')">📅 Esta Semana</button>
+          <button id="btn-rel-mes" class="btn sm" onclick="gerarRelatorioQuestoes('mes')">🗓️ Este Mês</button>
+        </div>
+      </div>
+      
+      <div id="relatorio-questoes-resultado" style="font-size: 0.9rem; color: var(--text);">
+        <div class="empty" style="padding: 1.5rem;">
+          <div class="empty-icon">💡</div>Escolha o período acima para listar as matérias e seus respectivos assuntos estudados.
+        </div>
+      </div>
+    </div>
 
     <div id="question-panel" style="display:none;" class="panel">
       <div class="grid-2">
@@ -298,13 +314,44 @@
       </select>
     </div>
 
-    <div id="questions-list">
-      <div class="empty">
-        <div class="empty-icon">✏️</div>Nenhuma questão cadastrada ainda
-      </div>
+  <!-- 📝 FOLHA SIMULANDO A PROVA (ALINHADA À ESQUERDA + BOTÃO DE SALVAR) -->
+<div id="folha-simulado" style="
+    background: var(--surface2); 
+    color: var(--text); 
+    padding: 3rem; 
+    margin-top: 1.5rem; 
+    margin-bottom: 1.5rem;
+    border-radius: 8px; 
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25); 
+    min-height: 400px; 
+    position: relative;">
+    
+    <!-- Cabeçalho da Prova (Mantido Centralizado) -->
+    <div style="text-align: center; border-bottom: 2px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+        <h2 style="margin: 0; font-size: 1.5rem; color: #fff; text-transform: uppercase; font-family: 'Inter', sans-serif;">Simulado Personalizado - Prova Oficial</h2>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.95rem; color: var(--muted); font-family: 'Inter', sans-serif;">Gerado por Inteligência Artificial com base nos seus estudos recentes</p>
     </div>
-  </div>
 
+    <!-- Conteúdo Dinâmico do Simulado (Alinhado à Esquerda) -->
+    <div id="conteudo-simulado-ia" style="line-height: 1.6; font-size: 1.05rem; text-align: left;">
+        <div style="text-align: center; color: var(--muted); margin-top: 3rem; margin-bottom: 2rem;">
+            <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">💡 Clique no botão abaixo para estruturar sua prova oficial com a IA.</p>
+        </div>
+        <div style="text-align: center;">
+            <button class="btn primary" onclick="gerarSimuladoIA()" style="padding: 0.85rem 2rem; font-size: 1rem; cursor: pointer;">
+                🤖 Gerar Simulado com IA (40 Questões)
+            </button>
+        </div>
+    </div>
+
+    <!-- Botão para Finalizar e Salvar no Banco -->
+    <div id="container-salvar-simulado" style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: right; display: none;">
+        <button class="btn primary" onclick="salvarSimuladoNoBanco()" style="background: var(--green) !important; color: #000 !important; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+            💾 Finalizar e Salvar Questões no Banco
+        </button>
+    </div>
+</div>
   <!-- ═══ POMODORO ═══ -->
   <div id="page-pomodoro" class="page">
     <div class="section-header">
@@ -435,6 +482,7 @@
       </div>
     </div>
   </div>
+
   <!-- ═══ ANÁLISE DE CONCURSO 🎯 ═══ -->
   <div id="page-concurso" class="page">
     <div class="section-header">
@@ -462,13 +510,12 @@
         Processar e Adicionar Concurso</button>
     </div>
 
-    <!-- CONTAINER DOS CONCURSOS (JÁ COM UM MODELO FIXO VISÍVEL) -->
+    <!-- CONTAINER DOS CONCURSOS -->
     <div id="lista-concursos-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
 
       <!-- 📦 BLOCO MODELO DE CONCURSO -->
       <div class="card" style="border: 1px solid var(--border); position: relative;">
 
-        <!-- Cabeçalho do Concurso com Título e Botão Excluir -->
         <div
           style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
           <div>
@@ -482,7 +529,6 @@
             onclick="this.closest('.card').remove()">🗑️ Excluir Concurso</button>
         </div>
 
-        <!-- Os Dois Cards de Painel Lado a Lado -->
         <div class="grid-2" style="margin-bottom: 1.25rem;">
           <div class="card"
             style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--amber); background: var(--surface2); margin: 0;">
@@ -501,7 +547,6 @@
           </div>
         </div>
 
-        <!-- Listagem de Tópicos do Edital -->
         <div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
             <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted);">📋 Matérias e Assuntos
@@ -529,6 +574,7 @@
 
     </div>
   </div>
+
   <!-- 🟢 SCRIPTS -->
   <script src="./api.js"></script>
   <script src="./auth.js"></script>

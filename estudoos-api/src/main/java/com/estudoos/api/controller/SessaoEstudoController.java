@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.dtos.SessaoDTO;
@@ -82,5 +83,13 @@ public class SessaoEstudoController {
         Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
         sessaoEstudoService.excluirSessaoEVoltarTopicos(id, usuarioLogado.getId());
         return ResponseEntity.noContent().build();
+    }
+    @GetMapping("/relatorio")
+    public ResponseEntity<Map<String, List<String>>> obterRelatorioSimulado(
+            @RequestParam(defaultValue = "semana") String periodo, 
+            Authentication authentication) {
+        String email = authentication.getName();
+        Map<String, List<String>> relatorio = sessaoEstudoService.obterRelatorioSimuladoPorEmail(email, periodo);
+        return ResponseEntity.ok(relatorio);
     }
 }

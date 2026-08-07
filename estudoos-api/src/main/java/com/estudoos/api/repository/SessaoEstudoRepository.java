@@ -1,5 +1,6 @@
 package com.estudoos.api.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +35,6 @@ public interface SessaoEstudoRepository extends JpaRepository<SessaoEstudo, Long
 
     // 🟢 Busca sessões por matéria e usuário
     List<SessaoEstudo> findByMateriaIdAndUsuarioId(Long materiaId, Long usuarioId);
+
+    List<SessaoEstudo> findByUsuarioIdAndDataSessaoGreaterThanEqual(Long usuarioId, LocalDate dataLimite);
 }
