@@ -205,6 +205,65 @@ async function irParaDataEspecifica(dataSelecionada) {
   showPage('hoje');
 }
 
+
+// 🧭 GERAR CICLO DE ESTUDOS NO PAINEL COM AS CORES REAIS DAS MATÉRIAS
+async function gerarCicloDashboard() {
+    const container = document.getElementById('conteudo-ciclo-dashboard');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div style="text-align: center; color: var(--muted); padding: 3rem;">
+            <p style="font-size: 1.1rem;">🔄 A IA está estruturando o seu ciclo com base nas suas matérias cadastradas... Aguarde.</p>
+        </div>`;
+
+    try {
+        const response = await fetch('/api/ciclo/gerar', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + getAuthToken(),
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const textoCiclo = data.conteudo || data.ciclo || JSON.stringify(data);
+
+            // Monta badges visuais rápidos das suas matérias reais com as cores delas
+            const badgesMatérias = (state.materias || []).map((m, i) => {
+                const corMat = m.cor || COLORS[i % COLORS.length];
+                return `<span style="display: inline-flex; align-items: center; gap: 0.4rem; background: var(--surface2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: var(--text);">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${corMat}; box-shadow: 0 0 6px ${corMat};"></span>
+                    ${m.nome}
+                </span>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    ${badgesMatérias ? `
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; background: var(--surface); padding: 0.85rem; border-radius: var(--radius); border: 1px solid var(--border);">
+                        <div style="width: 100%; font-size: 0.75rem; text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem; font-weight: 700;">Matérias Integradas no Ciclo:</div>
+                        ${badgesMatérias}
+                    </div>` : ''}
+
+                    <div style="background: var(--surface); padding: 1.25rem; border-radius: var(--radius); border: 1px solid var(--border); white-space: pre-wrap; color: var(--text); font-size: 0.95rem; line-height: 1.7; text-align: left;">
+                        ${textoCiclo}
+                    </div>
+
+                    <div style="text-align: right;">
+                        <button class="btn sm" onclick="gerarCicloDashboard()" style="background: var(--surface3); color: var(--text);">🔄 Gerar Novo Ciclo</button>
+                    </div>
+                </div>`;
+        } else {
+            container.innerHTML = `<p style="color: var(--coral); text-align: center; padding: 1.5rem;">❌ Erro ao gerar o ciclo de estudos pelo servidor.</p>`;
+        }
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = `<p style="color: var(--coral); text-align: center; padding: 1.5rem;">❌ Erro de conexão com o servidor.</p>`;
+    }
+}
+
+
 // 🔁 REVISÃO ESPAÇADA & FILA 
 async function renderRevisao() {
   if (!getAuthToken()) return;

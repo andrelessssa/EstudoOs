@@ -53,11 +53,8 @@ public class GeminiService {
                     .retrieve()
                     .body(String.class);
 
-            System.out.println("🤖 RESPOSTA CRUA DO GEMINI: " + jsonResponse);
-
             JsonNode root = objectMapper.readTree(jsonResponse);
             
-            // Extrai o texto da nova estrutura de steps -> content -> text
             JsonNode steps = root.path("steps");
             if (steps.isArray() && !steps.isEmpty()) {
                 for (JsonNode step : steps) {
@@ -81,6 +78,60 @@ public class GeminiService {
             return String.join("\n", topicos);
         }
     }
+
+    // 🧭 NOVO MÉTODO: GERAR CICLO DE ESTUDOS INTELIGENTE
+    public String gerarCicloEstudosInteligente(List<String> nomesMaterias) {
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
+            return "⚠️ Chave do Gemini não configurada. Configure a variável de ambiente na VPS.";
+        }
+
+        String prompt = "Atue como um mentor especialista em aprovação em concursos públicos. " +
+                "Com base exclusivamente nas seguintes matérias cadastradas pelo aluno: " + String.join(", ", nomesMaterias) + ". " +
+                "Estruture um Ciclo de Estudos Inteligente e otimizado, definindo a ordem de rotação ideal, " +
+                "blocos de tempo recomendados (ex: 1h a 1h30) e dicas de revisão. " +
+                "Seja direto, motivador e formate a resposta de forma limpa em Markdown.";
+
+        String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
+
+        String requestBody = """
+            {
+              "model": "gemini-3.6-flash",
+              "input": "%s"
+            }
+            """.formatted(prompt.replace("\"", "\\\"").replace("\n", " "));
+
+        try {
+            String jsonResponse = restClient.post()
+                    .uri(url)
+                    .header("x-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode root = objectMapper.readTree(jsonResponse);
+            JsonNode steps = root.path("steps");
+            if (steps.isArray() && !steps.isEmpty()) {
+                for (JsonNode step : steps) {
+                    JsonNode contentArray = step.path("content");
+                    if (contentArray.isArray() && !contentArray.isEmpty()) {
+                        for (JsonNode content : contentArray) {
+                            String texto = content.path("text").asText();
+                            if (texto != null && !texto.trim().isEmpty()) {
+                                return texto;
+                            }
+                        }
+                    }
+                }
+            }
+            return "⚠️ Não foi possível extrair o ciclo gerado pela IA.";
+        } catch (Exception e) {
+            System.err.println("❌ ERRO AO GERAR CICLO: " + e.getMessage());
+            e.printStackTrace();
+            return "⚠️ Erro interno ao comunicar com a API do Gemini.";
+        }
+    }
+
     public String gerarSimuladoComIa(java.util.Map<String, List<String>> relatorioAssuntos) {
         if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
             return "⚠️ Chave do Gemini não configurada para gerar o simulado na máquina local. Configure a variável de ambiente na VPS.";

@@ -102,11 +102,21 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">Desempenho por matéria</div>
-      <div id="dash-perf-list">
-        <div class="empty">
-          <div class="empty-icon">✏️</div>Responda questões para ver o desempenho
+    <!-- 🔄 SEÇÃO DE CICLO DE ESTUDOS INTELIGENTE NO PAINEL -->
+    <div class="card" style="position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+        <div class="card-title" style="margin: 0; font-size: 0.95rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase;">
+          🧭 CICLO DE ESTUDOS INTELIGENTE (IA)
+        </div>
+        <button class="btn primary" onclick="gerarCicloDashboard()" style="background: var(--accent); color: #fff; padding: 0.5rem 1rem; font-size: 0.85rem; cursor: pointer;">
+          🔄 Gerar Ciclo
+        </button>
+      </div>
+      
+      <div id="conteudo-ciclo-dashboard" style="font-size: 0.95rem; color: var(--text); line-height: 1.6; text-align: left;">
+        <div class="empty" style="padding: 2.5rem 1.5rem; text-align: center;">
+          <div class="empty-icon" style="font-size: 2rem; margin-bottom: 0.5rem;">💡</div>
+          <div style="color: var(--muted); font-size: 0.9rem;">Clique em "Gerar Ciclo" para a IA estruturar sua rotação de matérias com base nos seus cadastros.</div>
         </div>
       </div>
     </div>
@@ -244,10 +254,10 @@
     </div>
   </div>
 
-  <!-- ═══ QUESTÕES ═══ -->
+  <!-- ═══ QUESTÕES (COM O SIMULADO IA AQUI) ═══ -->
   <div id="page-questoes" class="page">
     <div class="section-header">
-      <div class="section-title">Banco de Questões</div>
+      <div class="section-title">Banco de Questões &amp; Simulado IA</div>
       <button class="btn primary" onclick="openAddQuestion()">+ Adicionar questão</button>
     </div>
     
@@ -266,6 +276,42 @@
           <div class="empty-icon">💡</div>Escolha o período acima para listar as matérias e seus respectivos assuntos estudados.
         </div>
       </div>
+    </div>
+
+    <!-- 📝 FOLHA SIMULANDO A PROVA NA ABA DE QUESTÕES -->
+    <div id="folha-simulado" style="
+      background: var(--surface2); 
+      color: var(--text); 
+      padding: 3rem; 
+      margin-top: 1.5rem; 
+      margin-bottom: 1.5rem;
+      border-radius: 8px; 
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25); 
+      min-height: 400px; 
+      position: relative;">
+        
+        <div style="text-align: center; border-bottom: 2px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+            <h2 style="margin: 0; font-size: 1.5rem; color: #fff; text-transform: uppercase; font-family: 'Inter', sans-serif;">Simulado Personalizado - Prova Oficial</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.95rem; color: var(--muted); font-family: 'Inter', sans-serif;">Gerado por Inteligência Artificial com base nos seus estudos recentes</p>
+        </div>
+
+        <div id="conteudo-simulado-ia" style="line-height: 1.6; font-size: 1.05rem; text-align: left;">
+            <div style="text-align: center; color: var(--muted); margin-top: 3rem; margin-bottom: 2rem;">
+                <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">💡 Clique no botão abaixo para estruturar sua prova oficial com a IA.</p>
+            </div>
+            <div style="text-align: center;">
+                <button class="btn primary" onclick="gerarSimuladoIA()" style="padding: 0.85rem 2rem; font-size: 1rem; cursor: pointer;">
+                    🤖 Gerar Simulado com IA (40 Questões)
+                </button>
+            </div>
+        </div>
+
+        <div id="container-salvar-simulado" style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: right; display: none;">
+            <button class="btn primary" onclick="salvarSimuladoNoBanco()" style="background: var(--green) !important; color: #000 !important; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+                💾 Finalizar e Salvar Questões no Banco
+            </button>
+        </div>
     </div>
 
     <div id="question-panel" style="display:none;" class="panel">
@@ -299,19 +345,7 @@
         <button class="btn" onclick="closeQuestionPanel()">Cancelar</button>
       </div>
     </div>
-
-    <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
-      <select id="filter-mat" style="width:auto;" onchange="renderQuestoes()">
-        <option value="">Todas as matérias</option>
-      </select>
-      <select id="filter-result" style="width:auto;" onchange="renderQuestoes()">
-        <option value="">Todos resultados</option>
-        <option value="correct">Acertos</option>
-        <option value="wrong">Erros</option>
-        <option value="pending">Não respondidas</option>
-      </select>
-    </div>
-  </div>
+  </div> <!-- FIM DA ABA QUESTÕES -->
 
   <!-- ═══ POMODORO ═══ -->
   <div id="page-pomodoro" class="page">
@@ -346,7 +380,7 @@
     </div>
   </div>
 
-  <!-- ═══ CONCURSO & SIMULADO IA ═══ -->
+  <!-- ═══ CONCURSO 🎯 (ANÁLISE DE EDITAL COM MODELO E BOTÃO DE EXCLUIR) ═══ -->
   <div id="page-concurso" class="page">
     <div class="section-header">
       <div class="section-title">Análise de Edital de Concurso</div>
@@ -371,40 +405,53 @@
       <button class="btn primary" id="btn-processar-edital" style="background: var(--accent); color: white;">🤖 Processar e Adicionar Concurso</button>
     </div>
 
-    <!-- FOLHA SIMULANDO A PROVA -->
-    <div id="folha-simulado" style="
-      background: var(--surface2); 
-      color: var(--text); 
-      padding: 3rem; 
-      margin-top: 1.5rem; 
-      margin-bottom: 1.5rem;
-      border-radius: 8px; 
-      border: 1px solid var(--border);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.25); 
-      min-height: 400px; 
-      position: relative;">
-        
-        <div style="text-align: center; border-bottom: 2px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem;">
-            <h2 style="margin: 0; font-size: 1.5rem; color: #fff; text-transform: uppercase; font-family: 'Inter', sans-serif;">Simulado Personalizado - Prova Oficial</h2>
-            <p style="margin: 0.5rem 0 0 0; font-size: 0.95rem; color: var(--muted); font-family: 'Inter', sans-serif;">Gerado por Inteligência Artificial com base nos seus estudos recentes</p>
+    <!-- CONTAINER DOS CONCURSOS -->
+    <div id="lista-concursos-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+      <!-- 📦 BLOCO MODELO DE CONCURSO -->
+      <div class="card" style="border: 1px solid var(--border); position: relative;">
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+          <div>
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; display: block;">Concurso Analisado</span>
+            <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">Exemplo: SEPLAG - Analista de Sistemas (Modelo)</h3>
+          </div>
+          <button class="btn sm" style="background: var(--surface3); color: var(--coral); border: 1px solid var(--border); cursor: pointer;" onclick="this.closest('.card').remove()">🗑️ Excluir Concurso</button>
         </div>
 
-        <div id="conteudo-simulado-ia" style="line-height: 1.6; font-size: 1.05rem; text-align: left;">
-            <div style="text-align: center; color: var(--muted); margin-top: 3rem; margin-bottom: 2rem;">
-                <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">💡 Clique no botão abaixo para estruturar sua prova oficial com a IA.</p>
-            </div>
-            <div style="text-align: center;">
-                <button class="btn primary" onclick="gerarSimuladoIA()" style="padding: 0.85rem 2rem; font-size: 1rem; cursor: pointer;">
-                    🤖 Gerar Simulado com IA (40 Questões)
-                </button>
-            </div>
+        <div class="grid-2" style="margin-bottom: 1.25rem;">
+          <div class="card" style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--amber); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">⏳ Tempo Restante para a Prova</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: #fff;">120 Dias 14:30</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">Prova: 10/12/2026 08:00</div>
+          </div>
+
+          <div class="card" style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--green); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">📊 Status da Cobertura</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: var(--green);">0%</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">0 de 15 assuntos cadastrados</div>
+          </div>
         </div>
 
-        <div id="container-salvar-simulado" style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: right; display: none;">
-            <button class="btn primary" onclick="salvarSimuladoNoBanco()" style="background: var(--green) !important; color: #000 !important; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
-                💾 Finalizar e Salvar Questões no Banco
-            </button>
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted);">📋 Matérias e Assuntos Extraídos</span>
+            <span style="background: var(--surface3); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">15 itens</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface2); padding: 0.75rem 1rem; border-radius: var(--radius); border: 1px solid var(--border);">
+              <div>
+                <strong style="color: var(--accent); font-size: 0.85rem; display: block;">Engenharia de Software</strong>
+                <span style="font-size: 0.9rem; color: var(--text);">Metodologias Ágeis (Scrum / Kanban)</span>
+              </div>
+              <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: var(--coral); padding: 3px 8px; border-radius: 4px;">Pendente no Banco</span>
+            </div>
+          </div>
         </div>
+
+      </div>
+
     </div>
   </div>
 
