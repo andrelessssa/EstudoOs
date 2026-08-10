@@ -22,6 +22,7 @@
     <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
     <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
     <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+    <div class="tab" onclick="showPage('ciclo')">🤖 Ciclo IA</div>
     <div class="tab" onclick="showPage('concurso')">🎯 Concurso</div>
     <div class="tab" id="tab-cadastrar" onclick="showPage('cadastrar')">👤 Cadastrar</div>
 
@@ -99,25 +100,6 @@
       <div class="card" style="overflow: visible;">
         <div class="card-title" id="cal-title">Calendário</div>
         <div id="dash-calendar" class="cal-container"></div>
-      </div>
-    </div>
-
-    <!-- 🔄 SEÇÃO DE CICLO DE ESTUDOS INTELIGENTE NO PAINEL -->
-    <div class="card" style="position: relative;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
-        <div class="card-title" style="margin: 0; font-size: 0.95rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase;">
-          🧭 CICLO DE ESTUDOS INTELIGENTE (IA)
-        </div>
-        <button class="btn primary" onclick="gerarCicloDashboard()" style="background: var(--accent); color: #fff; padding: 0.5rem 1rem; font-size: 0.85rem; cursor: pointer;">
-          🔄 Gerar Ciclo
-        </button>
-      </div>
-      
-      <div id="conteudo-ciclo-dashboard" style="font-size: 0.95rem; color: var(--text); line-height: 1.6; text-align: left;">
-        <div class="empty" style="padding: 2.5rem 1.5rem; text-align: center;">
-          <div class="empty-icon" style="font-size: 2rem; margin-bottom: 0.5rem;">💡</div>
-          <div style="color: var(--muted); font-size: 0.9rem;">Clique em "Gerar Ciclo" para a IA estruturar sua rotação de matérias com base nos seus cadastros.</div>
-        </div>
       </div>
     </div>
   </div>
@@ -378,6 +360,140 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- ═══ CICLO IA ═══ -->
+  <div id="page-ciclo" class="page">
+    <div class="section-header">
+      <div>
+        <div class="section-title">🤖 Ciclo de Estudo com IA</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+          A IA distribui seus assuntos pelos dias disponíveis automaticamente
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn" onclick="clearCiclo()" id="btn-clear-ciclo" style="display:none;">
+          🗑 Limpar plano
+        </button>
+        <button class="btn primary" onclick="openCicloConfig()" id="btn-gen-ciclo">
+          ✨ Gerar plano
+        </button>
+      </div>
+    </div>
+
+    <!-- PAINEL DE CONFIGURAÇÃO -->
+    <div id="ciclo-config" style="display:none;" class="ciclo-config-panel">
+      <div class="ciclo-config-title">⚙️ Configurar plano de estudos</div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Data de início</label>
+          <input type="date" id="ciclo-start" />
+        </div>
+        <div class="form-group">
+          <label>Data da prova (prazo final)</label>
+          <input type="date" id="ciclo-end" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Dias da semana disponíveis para estudar</label>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem;" id="ciclo-weekdays">
+          <button type="button" class="weekday-btn active" data-day="1">Seg</button>
+          <button type="button" class="weekday-btn active" data-day="2">Ter</button>
+          <button type="button" class="weekday-btn active" data-day="3">Qua</button>
+          <button type="button" class="weekday-btn active" data-day="4">Qui</button>
+          <button type="button" class="weekday-btn active" data-day="5">Sex</button>
+          <button type="button" class="weekday-btn" data-day="6">Sáb</button>
+          <button type="button" class="weekday-btn" data-day="0">Dom</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Horas de estudo por dia</label>
+          <input type="number" id="ciclo-hours" value="3" min="1" max="12" />
+        </div>
+        <div class="form-group">
+          <label>Estratégia de distribuição</label>
+          <select id="ciclo-priority">
+            <option value="balanced">Balanceado (distribuir igualmente)</option>
+            <option value="weak">Matérias com menos progresso primeiro</option>
+            <option value="sequential">Sequencial (uma matéria por vez)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Matérias a incluir no plano</label>
+        <div id="ciclo-mat-select" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;">
+          <!-- Preenchido dinamicamente pelo JS -->
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+        <button class="btn primary" onclick="gerarCicloIA()">🤖 Gerar com IA</button>
+        <button class="btn" onclick="document.getElementById('ciclo-config').style.display='none'">
+          Cancelar
+        </button>
+      </div>
+    </div>
+
+    <!-- STATS DO CICLO -->
+    <div id="ciclo-stats" style="display:none;" class="ciclo-stats-wrap">
+      <div class="grid-4">
+        <div class="stat">
+          <div class="stat-label">Dias de estudo</div>
+          <div class="stat-value accent" id="cstat-days">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Blocos totais</div>
+          <div class="stat-value" style="color:var(--purple);" id="cstat-blocks">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Concluídos</div>
+          <div class="stat-value green" id="cstat-done">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Progresso geral</div>
+          <div class="stat-value amber" id="cstat-pct">0%</div>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;">
+        <div class="ciclo-overall-bar">
+          <div class="ciclo-overall-fill" id="ciclo-overall-fill" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTADO VAZIO -->
+    <div id="ciclo-empty">
+      <div class="card ciclo-empty-card">
+        <div class="ciclo-empty-icon">🤖</div>
+        <div class="ciclo-empty-title">Nenhum ciclo gerado ainda</div>
+        <div class="ciclo-empty-desc">
+          Clique em "Gerar plano" para a IA criar seu cronograma personalizado
+          baseado nas matérias e assuntos que você já cadastrou no sistema.
+        </div>
+        <button class="btn primary" onclick="openCicloConfig()">
+          ✨ Gerar meu plano de estudos
+        </button>
+      </div>
+    </div>
+
+    <!-- LOADING DA IA -->
+    <div id="ciclo-loading" style="display:none;" class="card">
+      <div class="ciclo-ai-loading">
+        <div class="ciclo-spinner"></div>
+        <div class="ciclo-loading-title">Gerando seu plano personalizado</div>
+        <div class="ciclo-loading-msg" id="ciclo-loading-msg">
+          A IA está analisando seus assuntos
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANO GERADO -->
+    <div id="ciclo-plan" style="display:none;"></div>
   </div>
 
   <!-- ═══ CONCURSO 🎯 (ANÁLISE DE EDITAL COM MODELO E BOTÃO DE EXCLUIR) ═══ -->

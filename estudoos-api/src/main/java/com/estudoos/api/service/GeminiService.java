@@ -79,20 +79,16 @@ public class GeminiService {
         }
     }
 
-    // 🧭 NOVO MÉTODO: GERAR CICLO DE ESTUDOS INTELIGENTE
     public String gerarCicloEstudosInteligente(List<String> nomesMaterias) {
         if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
-            return "⚠️ Chave do Gemini não configurada. Configure a variável de ambiente na VPS.";
+            return "⚠️ Chave do Gemini não configurada.";
         }
 
         String prompt = "Atue como um mentor especialista em aprovação em concursos públicos. " +
                 "Com base exclusivamente nas seguintes matérias cadastradas pelo aluno: " + String.join(", ", nomesMaterias) + ". " +
-                "Estruture um Ciclo de Estudos Inteligente e otimizado, definindo a ordem de rotação ideal, " +
-                "blocos de tempo recomendados (ex: 1h a 1h30) e dicas de revisão. " +
-                "Seja direto, motivador e formate a resposta de forma limpa em Markdown.";
+                "Estruture um Ciclo de Estudos Inteligente e otimizado.";
 
         String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
-
         String requestBody = """
             {
               "model": "gemini-3.6-flash",
@@ -126,15 +122,13 @@ public class GeminiService {
             }
             return "⚠️ Não foi possível extrair o ciclo gerado pela IA.";
         } catch (Exception e) {
-            System.err.println("❌ ERRO AO GERAR CICLO: " + e.getMessage());
-            e.printStackTrace();
             return "⚠️ Erro interno ao comunicar com a API do Gemini.";
         }
     }
 
     public String gerarSimuladoComIa(java.util.Map<String, List<String>> relatorioAssuntos) {
         if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
-            return "⚠️ Chave do Gemini não configurada para gerar o simulado na máquina local. Configure a variável de ambiente na VPS.";
+            return "⚠️ Chave do Gemini não configurada.";
         }
 
         StringBuilder sb = new StringBuilder();
@@ -142,21 +136,9 @@ public class GeminiService {
             sb.append("- ").append(materia).append(": ").append(String.join(", ", assuntos)).append("\n");
         });
 
-        String prompt = "Atue como um especialista em bancas de concursos públicos (como FGV, Cebraspe/Cespe, FCC, Vunesp). " +
-            "Com base estritamente nas seguintes matérias e assuntos estudados pelo aluno:\n" + 
-            sb.toString() + 
-            "\nGere um simulado contendo exatamente 40 questões de múltipla escolha (A, B, C, D, E).\n" +
-            "REGRA OBRIGATÓRIA: As questões DEVEM ser de concursos públicos reais aplicados nos últimos anos no Brasil. Não invente questões.\n" +
-            "Em cada questão, você DEVE indicar obrigatoriamente:\n" +
-            "1. Órgão / Concurso e a Banca\n" +
-            "2. Ano da prova\n" +
-            "3. Enunciado completo\n" +
-            "4. Alternativas de A a E\n" +
-            "5. Gabarito oficial comentado ao final.\n" +
-            "Formate o resultado de forma limpa em Markdown.";
+        String prompt = "Atue como um especialista em bancas de concursos públicos. Gere um simulado com base em: " + sb.toString();
 
         String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
-
         String requestBody = """
             {
               "model": "gemini-3.6-flash",
@@ -190,9 +172,80 @@ public class GeminiService {
             }
             return "⚠️ Não foi possível extrair o texto da resposta da IA.";
         } catch (Exception e) {
-            System.err.println("❌ ERRO AO GERAR SIMULADO: " + e.getMessage());
-            e.printStackTrace();
             return "⚠️ Erro interno ao comunicar com a API do Gemini.";
+        }
+    }
+
+    // MÉTODO ADICIONADO PARA O CICLO PERSONALIZADO AVANÇADO
+   public String gerarCicloEstudosPersonalizado(java.util.Map<String, Object> payload) {
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
+            return "{\"erro\": \"Chave do Gemini não configurada.\"}";
+        }
+
+        String prompt = "Você é especialista em planejamento de estudos para concursos públicos brasileiros.\n" +
+                "Com base nos seguintes dados de configuração e matérias do aluno (em formato JSON):\n" +
+                payload.toString() + "\n\n" +
+                "REGRAS OBRIGATÓRIAS:\n" +
+                "1. Monte um ciclo focado em BLOCOS SEMANAIS (organizado estritamente de segunda a domingo).\n" +
+                "2. Cada bloco = 1 hora de estudo com 1 assunto.\n" +
+                "3. Para cada bloco inclua uma 'dica' curta de estudo (1 frase).\n" +
+                "4. Use os campos 'matId', 'materia', 'topicId' e 'assunto' exatamente como estão nos dados de entrada.\n\n" +
+                "RESPONDA APENAS com um JSON válido, sem texto antes/depois, sem markdown e sem backticks, seguindo esta estrutura exata:\n" +
+                "{\n" +
+                "  \"totalDias\": 0,\n" +
+                "  \"totalBlocos\": 0,\n" +
+                "  \"dias\": [\n" +
+                "    {\n" +
+                "      \"data\": \"YYYY-MM-DD\",\n" +
+                "      \"blocos\": [\n" +
+                "        {\n" +
+                "          \"materia\": \"Nome da Matéria\",\n" +
+                "          \"matId\": \"id_materia\",\n" +
+                "          \"assunto\": \"Nome do Assunto\",\n" +
+                "          \"topicId\": \"id_topico\",\n" +
+                "          \"dica\": \"Dica de estudo\"\n" +
+                "        }\n" +
+                "      ]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
+        String requestBody = """
+            {
+              "model": "gemini-3.6-flash",
+              "input": "%s"
+            }
+            """.formatted(prompt.replace("\"", "\\\"").replace("\n", " "));
+
+        try {
+            String jsonResponse = restClient.post()
+                    .uri(url)
+                    .header("x-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode root = objectMapper.readTree(jsonResponse);
+            JsonNode steps = root.path("steps");
+            if (steps.isArray() && !steps.isEmpty()) {
+                for (JsonNode step : steps) {
+                    JsonNode contentArray = step.path("content");
+                    if (contentArray.isArray() && !contentArray.isEmpty()) {
+                        for (JsonNode content : contentArray) {
+                            String texto = content.path("text").asText();
+                            if (texto != null && !texto.trim().isEmpty()) {
+                                return texto.replace("```json", "").replace("```", "").trim();
+                            }
+                        }
+                    }
+                }
+            }
+            return "{\"erro\": \"Não foi possível extrair o texto da resposta da IA.\"}";
+        } catch (Exception e) {
+            System.err.println("❌ ERRO AO GERAR CICLO PERSONALIZADO: " + e.getMessage());
+            return "{\"erro\": \"Erro interno ao comunicar com a API do Gemini.\"}";
         }
     }
 }

@@ -32,8 +32,7 @@ function showPage(id) {
   const pageEl = document.getElementById('page-' + id);
   if (pageEl) pageEl.classList.add('active');
 
-  // Adicione 'cadastrar' na ordem correta das abas do menu
-  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'concurso', 'cadastrar', 'perfil'];
+  const pages = ['dashboard', 'materias', 'hoje', 'revisao', 'questoes', 'pomodoro', 'concurso', 'cadastrar', 'perfil', 'ciclo'];
   const idx = pages.indexOf(id);
   if (idx !== -1) {
     const tabs = document.querySelectorAll('.tab');
@@ -49,6 +48,7 @@ function showPage(id) {
   if (id === 'hoje') renderHoje();
   if (id === 'revisao') renderRevisao();
   if (id === 'questoes') renderQuestoes();
+  if (id === 'ciclo') renderCiclo();
   if (id === 'cadastrar' && typeof aplicarControleAcesso === 'function') {
     aplicarControleAcesso();
   }
@@ -204,65 +204,6 @@ async function irParaDataEspecifica(dataSelecionada) {
   dataAtivaSessao = dataSelecionada;
   showPage('hoje');
 }
-
-
-// 🧭 GERAR CICLO DE ESTUDOS NO PAINEL COM AS CORES REAIS DAS MATÉRIAS
-async function gerarCicloDashboard() {
-    const container = document.getElementById('conteudo-ciclo-dashboard');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div style="text-align: center; color: var(--muted); padding: 3rem;">
-            <p style="font-size: 1.1rem;">🔄 A IA está estruturando o seu ciclo com base nas suas matérias cadastradas... Aguarde.</p>
-        </div>`;
-
-    try {
-        const response = await fetch('/api/ciclo/gerar', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + getAuthToken(),
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const textoCiclo = data.conteudo || data.ciclo || JSON.stringify(data);
-
-            // Monta badges visuais rápidos das suas matérias reais com as cores delas
-            const badgesMatérias = (state.materias || []).map((m, i) => {
-                const corMat = m.cor || COLORS[i % COLORS.length];
-                return `<span style="display: inline-flex; align-items: center; gap: 0.4rem; background: var(--surface2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; color: var(--text);">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: ${corMat}; box-shadow: 0 0 6px ${corMat};"></span>
-                    ${m.nome}
-                </span>`;
-            }).join('');
-
-            container.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-                    ${badgesMatérias ? `
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; background: var(--surface); padding: 0.85rem; border-radius: var(--radius); border: 1px solid var(--border);">
-                        <div style="width: 100%; font-size: 0.75rem; text-transform: uppercase; color: var(--muted); margin-bottom: 0.25rem; font-weight: 700;">Matérias Integradas no Ciclo:</div>
-                        ${badgesMatérias}
-                    </div>` : ''}
-
-                    <div style="background: var(--surface); padding: 1.25rem; border-radius: var(--radius); border: 1px solid var(--border); white-space: pre-wrap; color: var(--text); font-size: 0.95rem; line-height: 1.7; text-align: left;">
-                        ${textoCiclo}
-                    </div>
-
-                    <div style="text-align: right;">
-                        <button class="btn sm" onclick="gerarCicloDashboard()" style="background: var(--surface3); color: var(--text);">🔄 Gerar Novo Ciclo</button>
-                    </div>
-                </div>`;
-        } else {
-            container.innerHTML = `<p style="color: var(--coral); text-align: center; padding: 1.5rem;">❌ Erro ao gerar o ciclo de estudos pelo servidor.</p>`;
-        }
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p style="color: var(--coral); text-align: center; padding: 1.5rem;">❌ Erro de conexão com o servidor.</p>`;
-    }
-}
-
 
 // 🔁 REVISÃO ESPAÇADA & FILA 
 async function renderRevisao() {
@@ -855,6 +796,129 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
   }
 }
 
+async function saveSession() {
+  const notesEl = document.getElementById('session-notes');
+  const notes = notesEl ? notesEl.value.trim() : '';
+
+  if (revisaoAtiva) {
+    try {
+      if (sessaoEmEdicaoId) {
+        await fetchComAuth(`/sessoes/${sessaoEmEdicaoId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ anotacoes: notes })
+        });
+      }
+
+      const res = await fetchComAuth(`/revisoes/${revisaoAtiva}/concluir`, {
+        method: 'PUT'
+      });
+
+      if (res.ok) {
+        alert("Revisão concluída e anotação atualizada com sucesso! ");
+        resetaModoSalvarSessao();
+        showPage('revisao');
+      } else {
+        alert("Erro ao concluir revisão no servidor.");
+      }
+    } catch (e) {
+      console.error("Erro ao concluir revisão e salvar caderno:", e);
+      alert("Erro de conexão com o servidor.");
+    }
+    return;
+  }
+
+  if (sessaoEmEdicaoId) {
+    try {
+      const res = await fetchComAuth(`/sessoes/${sessaoEmEdicaoId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ anotacoes: notes })
+      });
+
+      if (res.ok) {
+        resetaModoSalvarSessao();
+        await renderHistoricoSessaoHoje();
+      } else {
+        alert("Erro ao atualizar anotação no servidor.");
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar anotação:", error);
+    }
+    return;
+  }
+
+  const matEl = document.getElementById('session-mat');
+  const matId = matEl ? matEl.value : '';
+  if (!matId) {
+    alert('Selecione uma matéria primeiro.');
+    return;
+  }
+
+  if (topicosSelecionadosLocalmente.length === 0) {
+    alert("Selecione pelo menos um assunto concluído para salvar a sessão.");
+    return;
+  }
+
+  const sessaoDTO = {
+    materiaId: parseInt(matId),
+    topicosConcluidosIds: topicosSelecionadosLocalmente,
+    anotacoes: notes,
+    dataSessao: today()
+  };
+
+  try {
+    const res = await fetchComAuth('/sessoes', {
+      method: 'POST',
+      body: JSON.stringify({ ...sessaoDTO })
+    });
+
+    if (res.ok) {
+      // 🔄 SINCRONIZAÇÃO COM O CICLO IA: Risca automaticamente no ciclo ativo após salvar na aba Hoje
+      const cicloAtual = getCiclo();
+      if (cicloAtual && cicloAtual.dias) {
+        cicloAtual.dias.forEach(dia => {
+          if (dia.blocos) {
+            dia.blocos.forEach(bloco => {
+              if (topicosSelecionadosLocalmente.includes(parseInt(bloco.topicId))) {
+                bloco.done = true;
+              }
+            });
+          }
+        });
+        saveCiclo(cicloAtual);
+
+        // Salva a atualização na nuvem (banco de dados)
+        try {
+          await fetchComAuth('/ciclo/gerar-avancado', {
+            method: 'POST',
+            body: JSON.stringify({
+              start: cicloAtual.config.start,
+              end: cicloAtual.config.end,
+              hours: cicloAtual.config.hours,
+              priority: cicloAtual.config.priority,
+              activeDays: cicloAtual.config.activeDays,
+              estatisticasAtualizadas: true,
+              dias: cicloAtual.dias
+            })
+          });
+        } catch (err) {
+          console.log("Progresso sincronizado localmente.");
+        }
+      }
+
+      resetaModoSalvarSessao();
+      topicosSelecionadosLocalmente = [];
+
+      await loadSessionTopics();
+      await renderHistoricoSessaoHoje();
+      renderDashboard();
+    } else {
+      alert("Erro ao salvar sessão no servidor Java.");
+    }
+  } catch (error) {
+    console.error("Erro ao salvar sessão:", error);
+  }
+}
+
 // 📘 MATÉRIAS & CONTROLE DE PAINÉIS 
 function alternarModoEdicao() {
   modoEdicao = !modoEdicao;
@@ -916,7 +980,6 @@ async function alternarStatusConclusaoTopico(topicoId, statusAtual) {
   }
 }
 
-// 🤖 BOTÃO DE ORDENAR TÓPICOS COM IA
 async function ordenarComIa(materiaId) {
   if (!confirm('Deseja que a Inteligência Artificial ordene os tópicos desta matéria do básico ao avançado?')) return;
 
@@ -1263,7 +1326,6 @@ async function gerarRelatorioQuestoes(periodo) {
     }
 }
 
-// 🤖 FUNÇÃO DE GERAR SIMULADO COM IA (CONECTADA AO ENDPOINT DO BACK-END)
 async function gerarSimuladoIA() {
     const containerConteudo = document.getElementById('conteudo-simulado-ia');
     const containerSalvar = document.getElementById('container-salvar-simulado');
@@ -1287,10 +1349,7 @@ async function gerarSimuladoIA() {
         
         if (response.ok) {
             const data = await response.json();
-            // Preenche o conteúdo alinhado à esquerda
             containerConteudo.innerHTML = `<div style="white-space: pre-wrap; color: var(--text); text-align: left;">${data.conteudo || data.simulado || JSON.stringify(data)}</div>`;
-            
-            // Exibe o botão de salvar no banco
             if (containerSalvar) containerSalvar.style.display = 'block';
         } else {
             containerConteudo.innerHTML = `<p style="color: var(--coral); text-align: center; margin-top: 4rem;">❌ Erro ao gerar o simulado pelo servidor. Tente novamente.</p>`;
@@ -1301,14 +1360,9 @@ async function gerarSimuladoIA() {
     }
 }
 
-// Função para tratar o salvamento das questões no banco
 async function salvarSimuladoNoBanco() {
-    // Aqui você faria o fetch para salvar no backend se houver a rota, ex:
-    // await fetch('/api/simulado/salvar', { method: 'POST', ... });
-
     alert("🚀 Questões do simulado finalizadas e salvas com sucesso!");
 
-    // Reseta a folha de simulado para o estado inicial
     const containerConteudo = document.getElementById('conteudo-simulado-ia');
     const containerSalvar = document.getElementById('container-salvar-simulado');
 
@@ -1325,7 +1379,6 @@ async function salvarSimuladoNoBanco() {
         `;
     }
 
-    // Oculta o botão de salvar novamente
     if (containerSalvar) {
         containerSalvar.style.display = 'none';
     }
@@ -1512,3 +1565,455 @@ document.addEventListener('DOMContentLoaded', () => {
 
   verificarAutenticacaoEInicializar();
 });
+
+// ─── CICLO IA LOGIC ──────────────────────────────────────────────────────────
+
+function getCiclo() {
+  try {
+    return JSON.parse(localStorage.getItem('studyos_ciclo') || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function saveCiclo(c) {
+  localStorage.setItem('studyos_ciclo', JSON.stringify(c));
+}
+
+async function renderCiclo() {
+  let ciclo = null;
+  try {
+    const resp = await fetchComAuth('/ciclo/ativo');
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.ativo && data.ciclo && data.ciclo.jsonConteudo) {
+        ciclo = JSON.parse(data.ciclo.jsonConteudo);
+      }
+    }
+  } catch (e) {
+    console.log("Buscando ciclo do localStorage devido a falha na API.");
+  }
+
+  if (!ciclo) {
+    ciclo = getCiclo();
+  }
+
+  if (!ciclo) {
+    _cicloShowEmpty();
+    return;
+  }
+
+  // 🔄 SINCRONIZAÇÃO DE STATUS REAL: Verifica se algum tópico foi desmarcado na aba Matérias
+  if (state.materias && state.materias.length > 0 && ciclo.dias) {
+    ciclo.dias.forEach(dia => {
+      if (dia.blocos) {
+        dia.blocos.forEach(bloco => {
+          if (bloco.matId && bloco.topicId) {
+            const mat = state.materias.find(m => String(m.id) === String(bloco.matId));
+            if (mat && mat.topicos) {
+              const top = mat.topicos.find(t => String(t.id) === String(bloco.topicId));
+              if (top) {
+                const realConcluido = top.concluido === true || top.concluido === 'true' || top.done === true;
+                bloco.done = realConcluido; // Força o ciclo a refletir exatamente o que está na matéria
+              }
+            }
+          }
+        });
+      }
+    });
+    saveCiclo(ciclo);
+  }
+
+  _cicloHideEmpty();
+  const btnClear = document.getElementById('btn-clear-ciclo');
+  if (btnClear) btnClear.style.display = 'inline-flex';
+  renderCicloPlano(ciclo);
+}
+function _cicloShowEmpty() {
+  document.getElementById('ciclo-empty').style.display   = 'block';
+  document.getElementById('ciclo-plan').style.display    = 'none';
+  document.getElementById('ciclo-stats').style.display   = 'none';
+  document.getElementById('ciclo-loading').style.display = 'none';
+  const btnClear = document.getElementById('btn-clear-ciclo');
+  if (btnClear) btnClear.style.display = 'none';
+}
+
+function _cicloHideEmpty() {
+  document.getElementById('ciclo-empty').style.display   = 'none';
+  document.getElementById('ciclo-loading').style.display = 'none';
+}
+
+function openCicloConfig() {
+  const cfg = document.getElementById('ciclo-config');
+  cfg.style.display = 'block';
+
+  const t = today();
+  document.getElementById('ciclo-start').value = t;
+  document.getElementById('ciclo-end').value   = addDays(t, 30);
+  document.getElementById('ciclo-hours').value = 3;
+
+  document.querySelectorAll('.weekday-btn').forEach(btn => {
+    btn.onclick = () => btn.classList.toggle('active');
+  });
+
+  const ms = document.getElementById('ciclo-mat-select');
+  if (!state.materias.length) {
+    ms.innerHTML = '<span style="font-size:13px;color:var(--muted);">Nenhuma matéria cadastrada. Adicione matérias primeiro.</span>';
+    return;
+  }
+
+  ms.innerHTML = state.materias.map(m => `
+    <button
+      type="button"
+      class="mat-select-btn active"
+      data-id="${m.id}"
+      style="color:${m.cor || 'var(--accent)'};border-color:${m.cor || 'var(--accent)'};background:${(m.cor || 'var(--accent)')}22;"
+      onclick="toggleMatSelect(this, '${m.cor || 'var(--accent)'}')"
+    >${m.nome || m.name}</button>
+  `).join('');
+}
+
+function toggleMatSelect(btn, color) {
+  btn.classList.toggle('active');
+  btn.style.background = btn.classList.contains('active')
+    ? color + '22'
+    : 'var(--surface2)';
+}
+
+async function gerarCicloIA() {
+  const start    = document.getElementById('ciclo-start').value;
+  const end      = document.getElementById('ciclo-end').value;
+  const hours    = parseInt(document.getElementById('ciclo-hours').value) || 3;
+  const priority = document.getElementById('ciclo-priority').value;
+
+  if (!start || !end || end <= start) {
+    alert('Defina datas válidas de início e fim.');
+    return;
+  }
+
+  const activeDays = [...document.querySelectorAll('.weekday-btn.active')]
+    .map(b => parseInt(b.dataset.day));
+
+  if (!activeDays.length) {
+    alert('Selecione ao menos um dia da semana.');
+    return;
+  }
+
+  const selectedMatIds = [...document.querySelectorAll('.mat-select-btn.active')]
+    .map(b => b.dataset.id);
+
+  if (!selectedMatIds.length) {
+    alert('Selecione ao menos uma matéria.');
+    return;
+  }
+
+  const studyDays = _buildStudyDays(start, end, activeDays);
+  if (!studyDays.length) {
+    alert('Nenhum dia disponível no período com os dias da semana selecionados.');
+    return;
+  }
+
+  document.getElementById('ciclo-config').style.display = 'none';
+  _cicloHideEmpty();
+  document.getElementById('ciclo-plan').style.display  = 'none';
+  document.getElementById('ciclo-stats').style.display = 'none';
+  document.getElementById('ciclo-loading').style.display = 'block';
+
+  const msgs = [
+    'Analisando suas matérias e todos os assuntos cadastrados',
+    'Calculando a distribuição ideal por semanas',
+    'Aplicando estratégia de revisão espaçada',
+    'Montando o cronograma completo dia a dia',
+    'Finalizando seu plano personalizado'
+  ];
+  let mi = 0;
+  const msgInterval = setInterval(() => {
+    const el = document.getElementById('ciclo-loading-msg');
+    if (el) el.textContent = msgs[mi % msgs.length];
+    mi++;
+  }, 2200);
+
+  // GARANTINDO QUE TODOS OS TÓPICOS DE CADA MATÉRIA SELECIONADA SEJAM ENVIADOS PARA A IA
+  const materiasFiltradas = state.materias.filter(m => selectedMatIds.includes(String(m.id)));
+  const materiasData = materiasFiltradas.map(m => ({
+    id:       m.id,
+    nome:     m.nome || m.name,
+    assuntos: (m.topicos || m.topics || []).map(t => ({ 
+      id: t.id, 
+      nome: t.nome || t.name, 
+      concluido: t.concluido || t.done 
+    }))
+  }));
+
+  try {
+    const resp = await fetchComAuth('/ciclo/gerar-avancado', {
+      method: 'POST',
+      body: JSON.stringify({ start, end, hours, priority, activeDays, studyDays, materiasData })
+    });
+
+    clearInterval(msgInterval);
+    document.getElementById('ciclo-loading').style.display = 'none';
+
+    if (!resp.ok) throw new Error('Erro na comunicação com o servidor.');
+
+    const parsed = await resp.json();
+
+    if (!parsed || !parsed.dias || !Array.isArray(parsed.dias)) {
+      throw new Error(parsed.erro || 'A IA retornou um formato inesperado. Tente gerar novamente.');
+    }
+
+    const cicloData = {
+      geradoEm: today(),
+      aviso: parsed.aviso || null,
+      config: { start, end, hours, priority, activeDays },
+      totalDias:   parsed.totalDias   || parsed.dias.length,
+      totalBlocos: parsed.totalBlocos || parsed.dias.reduce((s, d) => s + (d.blocos ? d.blocos.length : 0), 0),
+      dias: parsed.dias.map(d => ({
+        data: d.data,
+        blocos: (d.blocos || []).map(b => ({
+          ...b,
+          id:   Math.random().toString(36).slice(2),
+          done: false
+        }))
+      }))
+    };
+
+    saveCiclo(cicloData);
+    semanaAtivaIndex = 0;
+    renderCiclo();
+
+    if (cicloData.aviso) {
+      setTimeout(() => alert('⚠️ Aviso da IA: ' + cicloData.aviso), 300);
+    }
+
+  } catch (err) {
+    clearInterval(msgInterval);
+    document.getElementById('ciclo-loading').style.display = 'none';
+    _cicloShowEmpty();
+    alert('Erro ao gerar o plano:\n' + err.message);
+  }
+}
+
+let semanaAtivaIndex = 0;
+
+function renderCicloPlano(ciclo) {
+  if (!ciclo || !ciclo.dias) return;
+  const todayStr   = today();
+  const allBlocos  = ciclo.dias.flatMap(d => d.blocos || []);
+  const doneCount  = allBlocos.filter(b => b.done).length;
+  const total      = allBlocos.length;
+  const pct        = total ? Math.round(doneCount / total * 100) : 0;
+
+  const statsEl = document.getElementById('ciclo-stats');
+  if (statsEl) statsEl.style.display = 'block';
+  
+  const dEl = document.getElementById('cstat-days');
+  if (dEl) dEl.textContent = ciclo.dias.length;
+
+  const bEl = document.getElementById('cstat-blocks');
+  if (bEl) bEl.textContent = total;
+
+  const doneEl = document.getElementById('cstat-done');
+  if (doneEl) doneEl.textContent = doneCount;
+
+  const pctEl = document.getElementById('cstat-pct');
+  if (pctEl) pctEl.textContent = pct + '%';
+
+  const fillEl = document.getElementById('ciclo-overall-fill');
+  if (fillEl) fillEl.style.width = pct + '%';
+
+  const plan = document.getElementById('ciclo-plan');
+  if (!plan) return;
+  plan.style.display = 'block';
+
+  // Agrupa os dias em semanas (blocos de 7 dias)
+  const semanas = [];
+  for (let i = 0; i < ciclo.dias.length; i += 7) {
+    semanas.push(ciclo.dias.slice(i, i + 7));
+  }
+
+  if (semanaAtivaIndex >= semanas.length) semanaAtivaIndex = 0;
+
+  // Seletor Compacto e Limpo para Semanas
+  let navSemanasHtml = `
+    <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); padding:0.75rem 1rem; border-radius:var(--radius); margin-bottom:1rem; border:1px solid var(--border);">
+      <button class="btn sm" onclick="mudarSemanaCiclo(-1)" ${semanaAtivaIndex === 0 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>◀ Semana Anterior</button>
+      <div style="font-weight:700; font-size:13px; color:var(--text); text-align:center;">
+        📅 Semana ${semanaAtivaIndex + 1} de ${semanas.length} 
+        <span style="font-weight:400; color:var(--muted); font-size:11px; display:block;">
+          (${semanas[semanaAtivaIndex] ? dateStr(semanas[semanaAtivaIndex][0].data) : ''} até ${semanas[semanaAtivaIndex] ? dateStr(semanas[semanaAtivaIndex][semanas[semanaAtivaIndex].length - 1].data) : ''})
+        </span>
+      </div>
+      <button class="btn sm" onclick="mudarSemanaCiclo(1)" ${semanaAtivaIndex === semanas.length - 1 ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : ''}>Próxima Semana ▶</button>
+    </div>`;
+
+  const diasDaSemanaAtiva = semanas[semanaAtivaIndex] || [];
+
+  plan.innerHTML = navSemanasHtml + diasDaSemanaAtiva.map((d) => {
+    const di = ciclo.dias.findIndex(item => item.data === d.data);
+    const isToday  = d.data === todayStr;
+    const blocosDia = d.blocos || [];
+    const allDone  = blocosDia.length > 0 && blocosDia.every(b => b.done);
+    const dayDone  = blocosDia.filter(b => b.done).length;
+
+    let numCls = 'ciclo-day-num';
+    if (allDone)   numCls += ' done-day';
+    else if (isToday) numCls += ' today-day';
+
+    const dateObj  = new Date(d.data + 'T12:00:00');
+    const dayLabel = dateObj.toLocaleDateString('pt-BR', {
+      weekday: 'short', day: 'numeric', month: 'short'
+    });
+    const mats = [...new Set(blocosDia.map(b => b.materia))].join(', ');
+    const bodyId = `cday-body-${di}`;
+    const chevId = `cday-chev-${di}`;
+
+    return `
+      <div class="ciclo-day ${isToday ? 'active-day' : ''}">
+        <div class="ciclo-day-header" onclick="toggleCicloDay('${bodyId}','${chevId}')">
+          <div class="${numCls}">
+            ${allDone ? '✓' : isToday ? '📅' : di + 1}
+          </div>
+          <div class="ciclo-day-info">
+            <div class="ciclo-day-date">${dayLabel}${isToday ? ' — <span style="color:var(--accent)">Hoje</span>' : ''}</div>
+            <div class="ciclo-day-mats">${mats || 'Sem blocos planejados'}</div>
+          </div>
+          <div class="ciclo-day-progress">${dayDone}/${blocosDia.length} blocos</div>
+          <div class="ciclo-day-chevron ${isToday ? 'open' : ''}" id="${chevId}">▾</div>
+        </div>
+
+        <div class="ciclo-body ${isToday ? 'open' : ''}" id="${bodyId}">
+          ${blocosDia.length
+            ? blocosDia.map(b => `
+                <div class="ciclo-block ${b.done ? 'done-block' : ''}" id="cblock-${b.id}">
+                  <div
+                    class="ciclo-block-check ${b.done ? 'done' : ''}"
+                    onclick="event.stopPropagation(); toggleCicloBlock('${b.id}', ${di})"
+                    title="${b.done ? 'Desmarcar' : 'Marcar como concluído'}"
+                  ></div>
+                  <div class="ciclo-block-content" style="cursor:pointer;" onclick="irParaCadernoDoCiclo('${b.matId}', '${b.topicId}')" title="Clique para abrir e anotar na aba Hoje">
+                    <div class="ciclo-block-mat">📖 ${b.materia} <span style="font-size:10px; color:var(--accent);">(Ir para Caderno ➔)</span></div>
+                    <div class="ciclo-block-topic">${b.assunto}</div>
+                    ${b.dica ? `<div class="ciclo-block-tip">💡 ${b.dica}</div>` : ''}
+                  </div>
+                  <div class="ciclo-block-time">1h</div>
+                </div>
+              `).join('')
+            : '<div style="font-size:13px;color:var(--muted);padding:.5rem 0;">Dia de descanso 🛌</div>'
+          }
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function mudarSemanaCiclo(direcao) {
+  semanaAtivaIndex += direcao;
+  renderCiclo();
+}
+
+async function irParaCadernoDoCiclo(materiaId, topicoId) {
+  if (!materiaId || !topicoId) {
+    alert("Este bloco não possui ID de vínculo direto com a matéria cadastrada.");
+    return;
+  }
+  
+  showPage('hoje');
+  dataAtivaSessao = today();
+  
+  const selMat = document.getElementById('session-mat');
+  if (selMat) {
+    selMat.value = materiaId;
+  }
+
+  await loadSessionTopics();
+  await tratarCliqueTopico(topicoId, false, materiaId);
+}
+
+function toggleCicloDay(bodyId, chevId) {
+  const body = document.getElementById(bodyId);
+  const chev = document.getElementById(chevId);
+  const open = body.classList.toggle('open');
+  if (chev) chev.classList.toggle('open', open);
+}
+
+async function toggleCicloBlock(blockId, dayIdx) {
+  const ciclo = getCiclo();
+  if (!ciclo || !ciclo.dias) return;
+  const day   = ciclo.dias[dayIdx];
+  const block = day.blocos.find(b => b.id === blockId);
+  if (!block) return;
+
+  block.done = !block.done;
+
+  if (block.matId && block.topicId) {
+    const m = state.materias.find(x => String(x.id) === String(block.matId));
+    if (m) {
+      const topicosList = m.topicos || m.topics || [];
+      const t = topicosList.find(x => String(x.id) === String(block.topicId));
+      if (t) {
+        t.concluido = block.done;
+        t.done = block.done;
+        t.dataConclusao = block.done ? today() : null;
+
+        try {
+          await fetchComAuth(`/topicos/${block.topicId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: t.nome || t.name, concluido: block.done })
+          });
+        } catch (e) {
+          console.error("Erro ao sincronizar status do tópico com o servidor:", e);
+        }
+
+        if (block.done && typeof scheduleReview === 'function') {
+          scheduleReview(block.matId, block.topicId, t.nome || t.name, m.nome || m.name);
+        }
+      }
+    }
+  }
+
+  saveCiclo(ciclo);
+  renderCicloPlano(ciclo);
+
+  try {
+    await fetchComAuth('/ciclo/gerar-avancado', {
+      method: 'POST',
+      body: JSON.stringify({
+        start: ciclo.config.start,
+        end: ciclo.config.end,
+        hours: ciclo.config.hours,
+        priority: ciclo.config.priority,
+        activeDays: ciclo.config.activeDays,
+        estatisticasAtualizadas: true,
+        dias: ciclo.dias
+      })
+    });
+  } catch (e) {
+    console.log("Progresso salvo localmente.");
+  }
+}
+
+function clearCiclo() {
+  if (!confirm('Remover o plano gerado? O progresso dos assuntos já marcados será mantido nas Matérias.')) return;
+  localStorage.removeItem('studyos_ciclo');
+  renderCiclo();
+}
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+function _buildStudyDays(start, end, activeDays) {
+  const days   = [];
+  let   cur    = new Date(start + 'T12:00:00');
+  const endDate = new Date(end   + 'T12:00:00');
+  while (cur <= endDate) {
+    if (activeDays.includes(cur.getDay())) {
+      days.push(cur.toISOString().split('T')[0]);
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}

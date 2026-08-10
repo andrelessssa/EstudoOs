@@ -675,6 +675,261 @@ label {
   margin-top: 2px;
 }
 
+/* ═══════════════════════════════════════════════════
+   CICLO IA — Estilos
+   ═══════════════════════════════════════════════════ */
+
+.ciclo-config-panel {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ciclo-config-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.weekday-btn {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: .35rem .75rem;
+  border-radius: 99px;
+  border: 1.5px solid var(--border2);
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.weekday-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.mat-select-btn {
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  padding: .35rem .85rem;
+  border-radius: 99px;
+  border: 1.5px solid var(--border2);
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.ciclo-overall-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--surface3);
+  overflow: hidden;
+  margin-top: .5rem;
+}
+.ciclo-overall-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width .6s ease;
+}
+
+.ciclo-day {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: .75rem;
+  transition: box-shadow .2s, border-color .2s;
+}
+.ciclo-day.active-day {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.ciclo-day-header {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .9rem 1rem;
+  cursor: pointer;
+  transition: background .15s;
+  user-select: none;
+}
+.ciclo-day-header:hover { background: var(--surface3); }
+
+.ciclo-day-num {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--mono);
+  flex-shrink: 0;
+  transition: background .2s, color .2s;
+}
+.ciclo-day-num.done-day {
+  background: var(--green-dim);
+  color: var(--green);
+}
+.ciclo-day-num.today-day {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ciclo-day-info { flex: 1; min-width: 0; }
+
+.ciclo-day-date {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ciclo-day-mats {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ciclo-day-progress {
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.ciclo-day-chevron {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: .25rem;
+  transition: transform .2s;
+  flex-shrink: 0;
+}
+.ciclo-day-chevron.open { transform: rotate(180deg); }
+
+.ciclo-body {
+  padding: 0 1rem 1rem;
+  display: none;
+}
+.ciclo-body.open { display: block; }
+
+.ciclo-block {
+  background: var(--surface3);
+  border-radius: var(--radius);
+  padding: .85rem 1rem;
+  margin-bottom: .5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  transition: opacity .2s;
+}
+.ciclo-block.done-block { opacity: .5; }
+.ciclo-block.done-block .ciclo-block-topic {
+  text-decoration: line-through;
+}
+
+.ciclo-block-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border2);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: background .15s, border-color .15s;
+}
+.ciclo-block-check:hover { border-color: var(--green); }
+.ciclo-block-check.done {
+  background: var(--green);
+  border-color: var(--green);
+}
+.ciclo-block-check.done::after {
+  content: '✓';
+  font-size: 12px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.ciclo-block-content { flex: 1; min-width: 0; }
+
+.ciclo-block-mat {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 3px;
+}
+
+.ciclo-block-topic {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.ciclo-block-tip {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ciclo-block-time {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--amber);
+  flex-shrink: 0;
+  padding-top: 2px;
+  background: var(--amber-dim);
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+
+.ciclo-ai-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1rem;
+  gap: 1rem;
+}
+
+.ciclo-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--surface3);
+  border-top-color: var(--accent);
+  animation: ciclo-spin .8s linear infinite;
+}
+
+@keyframes ciclo-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ciclo-loading-title { font-size: 15px; font-weight: 600; }
+.ciclo-loading-msg { font-size: 13px; color: var(--muted); }
+
+.ciclo-empty-card { text-align: center; padding: 3rem 1.5rem; }
+.ciclo-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.ciclo-empty-title { font-size: 15px; font-weight: 600; margin-bottom: .5rem; }
+.ciclo-empty-desc { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+
+.ciclo-stats-wrap { margin-bottom: 1rem; }
+
 /* ==========================================================================
    📱 REGRAS DE MEDIA QUERIES (TABLET & MOBILE)
    ========================================================================== */
