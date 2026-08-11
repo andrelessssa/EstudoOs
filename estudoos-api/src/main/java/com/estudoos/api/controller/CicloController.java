@@ -1,80 +1,77 @@
 package com.estudoos.api.controller;
 
 import java.time.LocalDate;
-import java.util.Map;
+import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.estudoos.api.dtos.CicloRequestDTO;
+import com.estudoos.api.dtos.CicloResponseDTO;
 import com.estudoos.api.model.CicloEstudo;
+import com.estudoos.api.model.Materia;
+import com.estudoos.api.repository.MateriaRepository;
 import com.estudoos.api.service.CicloService;
-import com.estudoos.api.service.GeminiService;
 
 import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/ciclo")
+@CrossOrigin(origins = "*")
 public class CicloController {
 
-    @Autowired
-    private CicloService cicloService;
+    private final CicloService cicloService;
+    private final MateriaRepository materiaRepository;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    private GeminiService geminiService;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @GetMapping("/ativo")
-    public ResponseEntity<?> obterCicloAtivo(@RequestHeader("Authorization") String token) {
-        Long usuarioId = 1L; // Ajuste conforme seu sistema de autenticação
-        CicloEstudo ciclo = cicloService.buscarCicloAtivo(usuarioId);
-        if (ciclo == null) {
-            return ResponseEntity.ok(Map.of("ativo", false));
-        }
-        try {
-            // Converte a string salva no banco de volta para objeto JSON para o front-end ler perfeitamente
-            Object jsonNode = objectMapper.readValue(ciclo.getJsonConteudo(), Object.class);
-            return ResponseEntity.ok(jsonNode);
-        } catch (Exception e) {
-            return ResponseEntity.ok(Map.of("ativo", true, "ciclo", ciclo));
-        }
+    public CicloController(CicloService cicloService, MateriaRepository materiaRepository) {
+        this.cicloService = cicloService;
+        this.materiaRepository = materiaRepository;
+        this.objectMapper = new ObjectMapper();
     }
 
-    @PostMapping("/gerar-avancado")
-    public ResponseEntity<?> gerarCicloAvancado(
-            @RequestHeader("Authorization") String token,
-            @RequestBody Map<String, Object> payload) {
-        try {
-            Long usuarioId = 1L; // Ajuste para o ID real do usuário do token
-
-            String startStr = (String) payload.get("start");
-            String endStr = (String) payload.get("end");
-
-            // 1. Chama a IA para estruturar o JSON do ciclo
-            String jsonRespostaIA = geminiService.gerarCicloEstudosPersonalizado(payload);
-
-            // 2. Salva no banco de dados
-            cicloService.salvarOuAtualizarCiclo(
-                usuarioId, 
-                jsonRespostaIA, 
-                LocalDate.parse(startStr), 
-                LocalDate.parse(endStr)
-            );
-
-            // 3. Converte a resposta da IA em objeto Java para o front-end ler a propriedade 'dias' na hora
-            Object jsonNode = objectMapper.readValue(jsonRespostaIA, Object.class);
-
-            return ResponseEntity.ok(jsonNode);
-        } catch (Exception e) {
-            System.err.println("❌ ERRO NO CONTROLLER DE CICLO: " + e.getMessage());
-            return ResponseEntity.internalServerError().body(Map.of("erro", e.getMessage()));
+    @GetMapping("/ativo")
+    public ResponseEntity<?> buscarCicloAtivo() {
+        Long usuarioId = 1L; // Ajuste conforme a sua lógica de autenticação atual
+        CicloEstudo ciclo = cicloService.buscarCicloAtivo(usuarioId);
+        
+        if (ciclo == null) {
+            return ResponseEntity.ok(java.util.Map.of("ativo", false));
         }
+        
+        return ResponseEntity.ok(java.util.Map.of("ativo", true, "ciclo", ciclo));
+    }
+
+    @PostMapping("/gerar")
+    public ResponseEntity<CicloResponseDTO> gerarCiclo(@RequestBody CicloRequestDTO request) {
+       List<Materia> materias = materiaRepository.findAllById(
+    request.materiasIds().stream().map(Long::valueOf).toList()
+);
+
+        if (materias.isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                CicloResponseDTO.vazio("Nenhuma matéria encontrada com os IDs informados.")
+            );
+        }
+
+        CicloResponseDTO response = cicloService.gerarCiclo(request, materias);
+
+        try {
+            String jsonConteudo = objectMapper.writeValueAsString(response);
+            Long usuarioId = 1L; // Ajuste conforme o usuário logado
+            LocalDate inicio = LocalDate.parse(request.dataInicio());
+            LocalDate fim = LocalDate.parse(request.dataFim());
+            
+            cicloService.salvarOuAtualizarCiclo(usuarioId, jsonConteudo, inicio, fim);
+        } catch (Exception e) {
+            System.err.println("Erro ao salvar ciclo gerado no banco: " + e.getMessage());
+        }
+
+        return ResponseEntity.ok(response);
     }
 }
