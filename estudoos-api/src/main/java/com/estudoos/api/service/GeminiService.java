@@ -7,8 +7,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 public class GeminiService {    
@@ -76,6 +76,51 @@ public class GeminiService {
             System.err.println("❌ ERRO COMPLETO NA CHAMADA DO GEMINI: " + e.getMessage());
             e.printStackTrace();
             return String.join("\n", topicos);
+        }
+    }
+
+    public String chamarGeminiRaw(String prompt) {
+        if (apiKey == null || apiKey.trim().isEmpty() || apiKey.equals("chave_temporaria_local")) {
+            return "";
+        }
+
+        String url = "https://generativelanguage.googleapis.com/v1beta/interactions";
+        String requestBody = """
+            {
+              "model": "gemini-3.6-flash",
+              "input": "%s"
+            }
+            """.formatted(prompt.replace("\"", "\\\"").replace("\n", " "));
+
+        try {
+            String jsonResponse = restClient.post()
+                    .uri(url)
+                    .header("x-goog-api-key", apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+
+            JsonNode root = objectMapper.readTree(jsonResponse);
+            JsonNode steps = root.path("steps");
+            if (steps.isArray() && !steps.isEmpty()) {
+                for (JsonNode step : steps) {
+                    JsonNode contentArray = step.path("content");
+                    if (contentArray.isArray() && !contentArray.isEmpty()) {
+                        for (JsonNode content : contentArray) {
+                            String texto = content.path("text").asText();
+                            if (texto != null && !texto.trim().isEmpty()) {
+                                return texto;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return jsonResponse;
+        } catch (Exception e) {
+            System.err.println("❌ ERRO NA CHAMADA RAW DO GEMINI: " + e.getMessage());
+            return "";
         }
     }
 

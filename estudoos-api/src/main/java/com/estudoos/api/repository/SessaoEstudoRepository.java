@@ -37,4 +37,6 @@ public interface SessaoEstudoRepository extends JpaRepository<SessaoEstudo, Long
     List<SessaoEstudo> findByMateriaIdAndUsuarioId(Long materiaId, Long usuarioId);
 
     List<SessaoEstudo> findByUsuarioIdAndDataSessaoGreaterThanEqual(Long usuarioId, LocalDate dataLimite);
+
+    List<SessaoEstudo> findByUsuarioIdAndDataSessaoBetween(Long usuarioId, LocalDate dataInicio, LocalDate dataFim);
 }

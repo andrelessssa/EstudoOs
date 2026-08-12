@@ -10,6 +10,8 @@ import com.estudoos.api.model.Materia;
 import com.estudoos.api.model.Topico;
 import com.estudoos.api.repository.CicloRepository;
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -58,8 +60,12 @@ public class CicloService {
     // ─── MÉTODOS DE GERAÇÃO INTELIGENTE ───────────────────────────────────────
 
     public CicloResponseDTO gerarCiclo(CicloRequestDTO request, List<Materia> materias) {
+        Set<Long> materiasIds = request.materiasIds().stream()
+            .map(Long::valueOf)
+            .collect(Collectors.toSet());
+
         List<Materia> materiasFiltradas = materias.stream()
-            .filter(m -> request.materiasIds().contains(m.getId()))
+            .filter(m -> materiasIds.contains(m.getId()))
             .collect(Collectors.toList());
 
         List<BlocoRaw> blocosPendentes = coletarBlocosPendentes(materiasFiltradas, request.prioridade());
@@ -99,28 +105,23 @@ public class CicloService {
                 .filter(t -> !t.isConcluido())
                 .collect(Collectors.toList());
 
-           for (Topico t : pendentes) {
+            for (Topico t : pendentes) {
                 blocos.add(new BlocoRaw(
-                    m.getId(), 
-                    m.getNome(), 
+                    String.valueOf(m.getId()),
+                    m.getNome(),
                     categorizar(m.getNome()),
-                    t.getId(), 
-                    t.getNome(),  
-                    0  
-                        
+                    String.valueOf(t.getId()),
+                    t.getNome(),
+                    0
                 ));
-            
+            }
         }
 
         switch (prioridade) {
-            case "weak":
-                blocos.sort(Comparator.comparingInt(BlocoRaw::progressoPct));
-                break;
-            case "sequential":
-                break;
-            default:
-                Collections.shuffle(blocos);
-                break;
+            case "weak" -> blocos.sort(Comparator.comparingInt(bloco -> bloco.progressoPct()));
+            case "sequential" -> {
+            }
+            default -> Collections.shuffle(blocos);
         }
 
         return blocos;
@@ -162,7 +163,7 @@ public class CicloService {
             boolean vezCalculo = true;
 
             for (int slot = 0; slot < horasPorDia; slot++) {
-                BlocoRaw escolhido = null;
+                BlocoRaw escolhido;
 
                 if (vezCalculo) {
                     escolhido = filaCalculo.isEmpty() ? filaTeoria.poll() : filaCalculo.poll();
@@ -226,13 +227,13 @@ public class CicloService {
             String resposta = geminiService.chamarGeminiRaw(prompt);
             if (resposta == null || resposta.isBlank()) return;
 
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            com.fasterxml.jackson.databind.JsonNode arr = mapper.readTree(
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode arr = mapper.readTree(
                 resposta.replace("```json", "").replace("```", "").trim()
             );
 
             if (arr.isArray()) {
-                for (com.fasterxml.jackson.databind.JsonNode node : arr) {
+                for (JsonNode node : arr) {
                     int idx = node.path("idx").asInt(-1);
                     String dica = node.path("dica").asText("");
                     if (idx >= 0 && idx < lote.size() && !dica.isBlank()) {

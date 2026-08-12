@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estudando — Concurso Público 🧠</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ═══ BARRA DE NAVEGAÇÃO ═══ -->
+  <div class="nav">
+    <div class="logo">Estudo<span>OS</span></div>
+    <div class="tab active" onclick="showPage('dashboard')">📊 Painel</div>
+    <div class="tab" onclick="showPage('materias')">📚 Matérias</div>
+    <div class="tab" onclick="showPage('hoje')">📅 Hoje</div>
+    <div class="tab" onclick="showPage('revisao')">🔁 Revisão</div>
+    <div class="tab" onclick="showPage('questoes')">✏️ Questões</div>
+    <div class="tab" onclick="showPage('pomodoro')">⏱ Pomodoro</div>
+    <div class="tab" onclick="showPage('ciclo')">🤖 Ciclo IA</div>
+    <div class="tab" onclick="showPage('concurso')">🎯 Concurso</div>
+    <div class="tab" id="tab-cadastrar" onclick="showPage('cadastrar')">👤 Cadastrar</div>
+
+    <!-- 🟢 USUÁRIO & BOTÃO DE LOGOUT -->
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 1rem;">
+      <span id="user-display" style="font-size: 0.85rem; color: var(--muted); font-weight: 600;"></span>
+      <button class="btn sm" onclick="fazerLogout()"
+        style="background: var(--surface2); border: 1px solid var(--border);">🚪 Sair</button>
+    </div>
+  </div>
+
+  <!-- ═══ MODAL DE AUTENTICAÇÃO ═══ -->
+  <div id="auth-modal" class="auth-overlay" style="display: none;">
+    <div class="auth-card">
+      <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">Estudo<span style="color: var(--accent);">OS</span></h2>
+      </div>
+
+      <form id="form-login" onsubmit="realizarLogin(event);">
+        <h3 style="margin-bottom: 1rem;">Bem-vindo de volta! 🚀</h3>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="login-email" placeholder="seu@email.com" required />
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="login-senha" placeholder="******" required />
+        </div>
+        <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem;">Entrar no Sistema</button>
+      </form>
+
+      <div id="msg-auth-erro" style="color: var(--coral); font-size: 0.85rem; margin-top: 1rem; text-align: center;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <div id="page-dashboard" class="page active">
+    <div class="section-header" style="margin-bottom:1.25rem;">
+      <div>
+        <div style="font-size:20px;font-weight:700;" id="dash-greeting">Bom estudo! 👋</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:2px;" id="dash-date"></div>
+      </div>
+      <button class="btn primary" onclick="showPage('hoje')">Ver sessão de hoje →</button>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:1rem;">
+      <div class="stat">
+        <div class="stat-label">Assuntos estudados</div>
+        <div class="stat-value accent" id="dash-studied">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Questões acertadas</div>
+        <div class="stat-value green" id="dash-correct">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Taxa de acerto</div>
+        <div class="stat-value amber" id="dash-rate">—</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Revisões pendentes</div>
+        <div class="stat-value coral" id="dash-reviews">0</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:1rem;">
+      <div class="card">
+        <div class="card-title">Progresso por matéria</div>
+        <div id="dash-progress-list">
+          <div class="empty">
+            <div class="empty-icon">📚</div>Adicione matérias para ver o progresso
+          </div>
+        </div>
+      </div>
+      <div class="card" style="overflow: visible;">
+        <div class="card-title" id="cal-title">Calendário</div>
+        <div id="dash-calendar" class="cal-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MATÉRIAS ═══ -->
+  <div id="page-materias" class="page">
+    <div class="section-header">
+      <div class="section-title">Matérias &amp; Assuntos</div>
+      <div style="display: flex; gap: 0.5rem;">
+        <button class="btn primary" onclick="openAddMateria()">+ Nova matéria</button>
+        <button class="btn" onclick="alternarModoEdicao()">✏️ Gerenciar</button>
+      </div>
+    </div>
+
+    <div id="materias-panel" style="display:none;" class="panel">
+      <input type="hidden" id="mat-id-edit" value="" />
+      <div class="form-group">
+        <label>Nome da matéria</label>
+        <input id="mat-name" placeholder="ex: Banco de Dados" />
+      </div>
+      <div class="form-group">
+        <label>Incluir novos assuntos (um por linha)</label>
+        <textarea id="mat-topics" rows="6"
+          placeholder="SQL&#10;Modelagem ER&#10;Normalização&#10;Transações&#10;Índices&#10;..."></textarea>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn primary" onclick="saveMateria()">Salvar</button>
+        <button class="btn" onclick="closeMateriaPanel()">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="topico-panel" style="display:none;" class="panel">
+      <input type="hidden" id="topico-id-edit" value="" />
+      <div class="form-group">
+        <label>Nome do Assunto</label>
+        <input id="topico-name-edit" placeholder="ex: Pontuação" />
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn primary" onclick="salvarEdicaoTopico()">Atualizar Assunto</button>
+        <button class="btn" onclick="closeTopicoPanel()">Cancelar</button>
+      </div>
+    </div>
+
+    <div id="materias-list">
+      <div class="empty">
+        <div class="empty-icon">📘</div>Nenhuma matéria cadastrada ainda
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SESSÃO DE HOJE ─── -->
+  <div id="page-hoje" class="page" style="height: auto !important; min-height: 100%;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div>
+        <h2 style="margin: 0; font-size: 1.5rem;">SESSÃO DE HOJE</h2>
+        <span id="hoje-date" style="color: var(--muted); font-size: 0.9rem;"></span>
+      </div>
+      <select id="session-mat" onchange="loadSessionTopics()" style="width: auto; max-width: 250px;">
+        <option value="">Selecionar matéria...</option>
+      </select>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+      <div class="card" style="display: flex; flex-direction: column; height: 350px;">
+        <h3
+          style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
+          Assuntos da Sessão</h3>
+        <div id="session-topics-list" style="flex: 1; overflow-y: auto;">
+          <div class="empty">
+            <div class="empty-icon">📖</div>Selecione uma matéria acima
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="display: flex; flex-direction: column; height: 350px;">
+        <h3
+          style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
+          Histórico de Sessões</h3>
+        <div id="session-history" style="flex: 1; overflow-y: auto;">
+          <div class="empty">
+            <div class="empty-icon">🗂️</div>Nenhuma sessão registrada hoje
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="height: auto; margin-top: 1rem;">
+      <h3
+        style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
+        Notas Rápidas da Sessão</h3>
+      <textarea id="session-notes" placeholder="Anote pontos importantes, dúvidas, lembretes..."
+        oninput="autoGrowNotes(this)"
+        style="width: 100%; min-height: 180px; overflow-y: hidden; resize: none; margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: inherit; line-height: 1.6;"></textarea>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button id="btn-save-session" class="btn primary" onclick="saveSession()"
+          style="background: var(--accent); color: white;">💾 Salvar sessão</button>
+        <button class="btn"
+          onclick="document.getElementById('session-notes').value = ''; autoGrowNotes(document.getElementById('session-notes')); resetaModoSalvarSessao();"
+          style="background: var(--surface3);">Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ REVISÃO ═══ -->
+  <div id="page-revisao" class="page">
+    <div class="section-header">
+      <div class="section-title">Revisão Espaçada</div>
+      <div style="font-size:12px;color:var(--muted);">Curva de Ebbinghaus: 3 → 7 → 15 → 30 dias</div>
+    </div>
+
+    <div class="grid-3" style="margin-bottom:1rem;">
+      <div class="stat">
+        <div class="stat-label">Para revisar hoje</div>
+        <div class="stat-value coral" id="rev-today">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Próximos 7 dias</div>
+        <div class="stat-value amber" id="rev-week">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Revisões feitas</div>
+        <div class="stat-value green" id="rev-done">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Fila de revisão</div>
+      <div id="rev-queue">
+        <div class="empty">
+          <div class="empty-icon">🔁</div>Nenhuma revisão pendente — continue estudando!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ QUESTÕES (COM O SIMULADO IA AQUI) ═══ -->
+  <div id="page-questoes" class="page">
+    <div class="section-header">
+      <div class="section-title">Banco de Questões &amp; Simulado IA</div>
+      <button class="btn primary" onclick="openAddQuestion()">+ Adicionar questão</button>
+    </div>
+    
+    <!-- 📊 CARD DE RELATÓRIO PARA SIMULADO -->
+    <div class="card" style="margin-top: 1.5rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+        <div class="card-title" style="margin: 0;">📊 Relatório de Assuntos para Simulado</div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+          <button id="btn-rel-periodo" class="btn sm primary" onclick="openRelatorioPeriodoPanel()">📅 Selecionar período</button>
+          <span id="relatorio-periodo-resumo" style="color: var(--muted); font-size: 0.9rem;"></span>
+        </div>
+      </div>
+      <div id="relatorio-periodo-panel" style="display:none; margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface2);">
+        <div style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+          <label style="display:flex; flex-direction:column; font-size:0.85rem;color:var(--muted);">
+            Data de início
+            <input id="rel-start-date" type="date" style="margin-top:0.45rem; padding:0.6rem 0.8rem; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text);" />
+          </label>
+          <label style="display:flex; flex-direction:column; font-size:0.85rem;color:var(--muted);">
+            Data de término
+            <input id="rel-end-date" type="date" style="margin-top:0.45rem; padding:0.6rem 0.8rem; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--text);" />
+          </label>
+          <button class="btn sm primary" onclick="gerarRelatorioPeriodo()">Gerar relatório</button>
+          <button class="btn sm" onclick="fecharRelatorioPeriodoPanel()">Cancelar</button>
+        </div>
+      </div>
+
+      <div id="relatorio-questoes-resultado" style="font-size: 0.9rem; color: var(--text);">
+        <div class="empty" style="padding: 1.5rem;">
+          <div class="empty-icon">💡</div>Escolha o período acima para listar as matérias e seus respectivos assuntos estudados.
+        </div>
+      </div>
+    </div>
+
+    <!-- 📝 FOLHA SIMULANDO A PROVA NA ABA DE QUESTÕES -->
+    <div id="folha-simulado" style="
+      background: var(--surface2); 
+      color: var(--text); 
+      padding: 3rem; 
+      margin-top: 1.5rem; 
+      margin-bottom: 1.5rem;
+      border-radius: 8px; 
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25); 
+      min-height: 400px; 
+      position: relative;">
+        
+        <div style="text-align: center; border-bottom: 2px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 2rem;">
+            <h2 style="margin: 0; font-size: 1.5rem; color: #fff; text-transform: uppercase; font-family: 'Inter', sans-serif;">Simulado Personalizado - Prova Oficial</h2>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.95rem; color: var(--muted); font-family: 'Inter', sans-serif;">Gerado por Inteligência Artificial com base nos seus estudos recentes</p>
+        </div>
+
+        <div id="conteudo-simulado-ia" style="line-height: 1.6; font-size: 1.05rem; text-align: left;">
+            <div style="text-align: center; color: var(--muted); margin-top: 3rem; margin-bottom: 2rem;">
+                <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">💡 Clique no botão abaixo para estruturar sua prova oficial com a IA.</p>
+            </div>
+            <div style="text-align: center;">
+                <button class="btn primary" onclick="gerarSimuladoIA()" style="padding: 0.85rem 2rem; font-size: 1rem; cursor: pointer;">
+                    🤖 Gerar Simulado com IA (40 Questões)
+                </button>
+            </div>
+        </div>
+
+        <div id="container-salvar-simulado" style="margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: right; display: none;">
+            <button class="btn primary" onclick="salvarSimuladoNoBanco()" style="background: var(--green) !important; color: #000 !important; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+                💾 Finalizar e Salvar Questões no Banco
+            </button>
+        </div>
+    </div>
+
+    <div id="question-panel" style="display:none;" class="panel">
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Matéria</label>
+          <select id="q-mat" onchange="updateQTopics()"></select>
+        </div>
+        <div class="form-group">
+          <label>Assunto</label>
+          <select id="q-topic">
+            <option value="">Selecione a matéria primeiro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Enunciado da questão</label>
+        <textarea id="q-text" rows="3" placeholder="Cole ou escreva a questão aqui..."></textarea>
+      </div>
+      <div style="margin-bottom:.75rem;">
+        <label style="margin-bottom:.5rem;">Alternativas (marque o rádio da correta)</label>
+        <div id="q-options-input"></div>
+        <button class="btn sm" onclick="addOption()" style="margin-top:.4rem;">+ Alternativa</button>
+      </div>
+      <div class="form-group">
+        <label>Gabarito comentado (opcional)</label>
+        <textarea id="q-comment" rows="2" placeholder="Explicação da resposta..."></textarea>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn primary" onclick="saveQuestion()">Salvar questão</button>
+        <button class="btn" onclick="closeQuestionPanel()">Cancelar</button>
+      </div>
+    </div>
+  </div> <!-- FIM DA ABA QUESTÕES -->
+
+  <!-- ═══ POMODORO ═══ -->
+  <div id="page-pomodoro" class="page">
+    <div class="section-header">
+      <h2 class="section-title">Timer Pomodoro</h2>
+      <div style="font-size:12px;color:var(--muted);">25 min foco · 5 min pausa</div>
+    </div>
+
+    <div style="max-width:400px;margin:0 auto;">
+      <div class="card" style="text-align:center;padding:2rem 1.5rem;">
+        <div style="display:flex;gap:.5rem;justify-content:center;margin-bottom:1.5rem;">
+          <button class="btn sm" id="pomo-mode-work" onclick="setPomoMode('work')" style="border-color:var(--accent);color:var(--accent);">🎯 Foco 25min</button>
+          <button class="btn sm" id="pomo-mode-short" onclick="setPomoMode('short')">☕ Pausa 5min</button>
+          <button class="btn sm" id="pomo-mode-long" onclick="setPomoMode('long')">🛌 Longa 15min</button>
+        </div>
+
+        <div class="pomo-circle" id="pomo-circle">
+          <div class="pomo-time" id="pomo-display">25:00</div>
+          <div class="pomo-label" id="pomo-label">FOCO</div>
+        </div>
+
+        <div style="display:flex;gap:.75rem;justify-content:center;margin-bottom:1.5rem;">
+          <button class="btn primary" id="pomo-btn" onclick="togglePomo()">▶ Iniciar</button>
+          <button class="btn" onclick="resetPomo()">↺ Resetar</button>
+        </div>
+
+        <div style="background:var(--surface2);border-radius:var(--radius);padding:1rem;">
+          <div class="stat-label" style="margin-bottom:.5rem;">Sessões completadas hoje</div>
+          <div style="font-size:28px;font-weight:700;font-family:var(--mono);color:var(--green);" id="pomo-count">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CICLO IA ═══ -->
+  <div id="page-ciclo" class="page">
+    <div class="section-header">
+      <div>
+        <div class="section-title">🤖 Ciclo de Estudo com IA</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+          A IA distribui seus assuntos pelos dias disponíveis automaticamente
+        </div>
+      </div>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn" onclick="clearCiclo()" id="btn-clear-ciclo" style="display:none;">
+          🗑 Limpar plano
+        </button>
+        <button class="btn primary" onclick="openCicloConfig()" id="btn-gen-ciclo">
+          ✨ Gerar plano
+        </button>
+      </div>
+    </div>
+
+    <!-- PAINEL DE CONFIGURAÇÃO -->
+    <div id="ciclo-config" style="display:none;" class="ciclo-config-panel">
+      <div class="ciclo-config-title">⚙️ Configurar plano de estudos</div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Data de início</label>
+          <input type="date" id="ciclo-start" />
+        </div>
+        <div class="form-group">
+          <label>Data da prova (prazo final)</label>
+          <input type="date" id="ciclo-end" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Dias da semana disponíveis para estudar</label>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem;" id="ciclo-weekdays">
+          <button type="button" class="weekday-btn active" data-day="1">Seg</button>
+          <button type="button" class="weekday-btn active" data-day="2">Ter</button>
+          <button type="button" class="weekday-btn active" data-day="3">Qua</button>
+          <button type="button" class="weekday-btn active" data-day="4">Qui</button>
+          <button type="button" class="weekday-btn active" data-day="5">Sex</button>
+          <button type="button" class="weekday-btn" data-day="6">Sáb</button>
+          <button type="button" class="weekday-btn" data-day="0">Dom</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Horas de estudo por dia</label>
+          <input type="number" id="ciclo-hours" value="3" min="1" max="12" />
+        </div>
+        <div class="form-group">
+          <label>Estratégia de distribuição</label>
+          <select id="ciclo-priority">
+            <option value="balanced">Balanceado (distribuir igualmente)</option>
+            <option value="weak">Matérias com menos progresso primeiro</option>
+            <option value="sequential">Sequencial (uma matéria por vez)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Matérias a incluir no plano</label>
+        <div id="ciclo-mat-select" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem;">
+          <!-- Preenchido dinamicamente pelo JS -->
+        </div>
+      </div>
+
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;">
+        <button class="btn primary" onclick="gerarCicloIA()">🤖 Gerar com IA</button>
+        <button class="btn" onclick="document.getElementById('ciclo-config').style.display='none'">
+          Cancelar
+        </button>
+      </div>
+    </div>
+
+    <!-- STATS DO CICLO -->
+    <div id="ciclo-stats" style="display:none;" class="ciclo-stats-wrap">
+      <div class="grid-4">
+        <div class="stat">
+          <div class="stat-label">Dias de estudo</div>
+          <div class="stat-value accent" id="cstat-days">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Blocos totais</div>
+          <div class="stat-value" style="color:var(--purple);" id="cstat-blocks">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Concluídos</div>
+          <div class="stat-value green" id="cstat-done">0</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Progresso geral</div>
+          <div class="stat-value amber" id="cstat-pct">0%</div>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;">
+        <div class="ciclo-overall-bar">
+          <div class="ciclo-overall-fill" id="ciclo-overall-fill" style="width:0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTADO VAZIO -->
+    <div id="ciclo-empty">
+      <div class="card ciclo-empty-card">
+        <div class="ciclo-empty-icon">🤖</div>
+        <div class="ciclo-empty-title">Nenhum ciclo gerado ainda</div>
+        <div class="ciclo-empty-desc">
+          Clique em "Gerar plano" para a IA criar seu cronograma personalizado
+          baseado nas matérias e assuntos que você já cadastrou no sistema.
+        </div>
+        <button class="btn primary" onclick="openCicloConfig()">
+          ✨ Gerar meu plano de estudos
+        </button>
+      </div>
+    </div>
+
+    <!-- LOADING DA IA -->
+    <div id="ciclo-loading" style="display:none;" class="card">
+      <div class="ciclo-ai-loading">
+        <div class="ciclo-spinner"></div>
+        <div class="ciclo-loading-title">Gerando seu plano personalizado</div>
+        <div class="ciclo-loading-msg" id="ciclo-loading-msg">
+          A IA está analisando seus assuntos
+        </div>
+      </div>
+    </div>
+
+    <!-- PLANO GERADO -->
+    <div id="ciclo-plan" style="display:none;"></div>
+  </div>
+
+  <!-- ═══ CONCURSO 🎯 (ANÁLISE DE EDITAL COM MODELO E BOTÃO DE EXCLUIR) ═══ -->
+  <div id="page-concurso" class="page">
+    <div class="section-header">
+      <div class="section-title">Análise de Edital de Concurso</div>
+      <div style="font-size:12px;color:var(--muted);">Gerencie múltiplos editais, contagens regressivas e tópicos</div>
+    </div>
+
+    <!-- FORMULÁRIO DE CADASTRO -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-title">⚙️ Cadastrar Novo Edital</div>
+      <div class="form-group">
+        <label>Nome do Concurso</label>
+        <input id="c-nome" type="text" placeholder="Ex: SEPLAG - Analista de Sistemas" />
+      </div>
+      <div class="form-group">
+        <label>Data e Hora da Prova</label>
+        <input id="c-data" type="datetime-local" />
+      </div>
+      <div class="form-group">
+        <label>Cole o Texto do Edital</label>
+        <textarea id="c-edital" rows="4" placeholder="Cole o conteúdo do edital para extração dos tópicos..."></textarea>
+      </div>
+      <button class="btn primary" id="btn-processar-edital" style="background: var(--accent); color: white;">🤖 Processar e Adicionar Concurso</button>
+    </div>
+
+    <!-- CONTAINER DOS CONCURSOS -->
+    <div id="lista-concursos-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+      <!-- 📦 BLOCO MODELO DE CONCURSO -->
+      <div class="card" style="border: 1px solid var(--border); position: relative;">
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+          <div>
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; display: block;">Concurso Analisado</span>
+            <h3 style="margin: 0; font-size: 1.2rem; color: #fff;">Exemplo: SEPLAG - Analista de Sistemas (Modelo)</h3>
+          </div>
+          <button class="btn sm" style="background: var(--surface3); color: var(--coral); border: 1px solid var(--border); cursor: pointer;" onclick="this.closest('.card').remove()">🗑️ Excluir Concurso</button>
+        </div>
+
+        <div class="grid-2" style="margin-bottom: 1.25rem;">
+          <div class="card" style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--amber); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">⏳ Tempo Restante para a Prova</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: #fff;">120 Dias 14:30</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">Prova: 10/12/2026 08:00</div>
+          </div>
+
+          <div class="card" style="text-align: center; padding: 1.25rem; border-left: 4px solid var(--green); background: var(--surface2); margin: 0;">
+            <div class="stat-label" style="margin-bottom: 0.25rem;">📊 Status da Cobertura</div>
+            <div style="font-size: 1.6rem; font-weight: 700; font-family: var(--mono); color: var(--green);">0%</div>
+            <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem;">0 de 15 assuntos cadastrados</div>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted);">📋 Matérias e Assuntos Extraídos</span>
+            <span style="background: var(--surface3); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">15 itens</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--surface2); padding: 0.75rem 1rem; border-radius: var(--radius); border: 1px solid var(--border);">
+              <div>
+                <strong style="color: var(--accent); font-size: 0.85rem; display: block;">Engenharia de Software</strong>
+                <span style="font-size: 0.9rem; color: var(--text);">Metodologias Ágeis (Scrum / Kanban)</span>
+              </div>
+              <span style="font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: var(--coral); padding: 3px 8px; border-radius: 4px;">Pendente no Banco</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ CADASTRAR / PERFIL ═══ -->
+  <div id="page-cadastrar" class="page">
+    <div class="section-header">
+      <h2 class="section-title">Administração de Usuários</h2>
+      <div style="font-size:12px;color:var(--muted);">Gestão interna do sistema</div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem;">
+      <div class="card" id="card-cadastrar-usuario">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--accent);">👑 Cadastrar Novo Usuário</h3>
+        <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1.25rem;">
+          Apenas administradores logados podem criar novos perfis de acesso.
+        </p>
+
+        <form id="form-criar-usuario-admin" onsubmit="criarNovoUsuarioAdmin(event);">
+          <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" id="admin-reg-nome" placeholder="Nome do usuário" required />
+          </div>
+          <div class="form-group">
+            <label>E-mail de Acesso</label>
+            <input type="email" id="admin-reg-email" placeholder="usuario@email.com" required />
+          </div>
+          <div class="form-group">
+            <label>Senha Inicial</label>
+            <input type="password" id="admin-reg-senha" placeholder="******" required />
+          </div>
+          <button type="submit" class="btn primary" style="width: 100%; margin-top: 1rem; background: var(--green);">
+            ➕ Cadastrar Usuário
+          </button>
+        </form>
+        <div id="msg-admin-reg" style="font-size: 0.85rem; margin-top: 1rem; text-align: center;"></div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 style="font-size: 1.1rem;">👥 Usuários Cadastrados</h3>
+          <button class="btn sm" onclick="carregarListaUsuarios()">🔄 Atualizar</button>
+        </div>
+
+        <div id="lista-usuarios-container"
+          style="max-height: 350px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem;">
+          <div class="empty">
+            <div class="empty-icon">⏳</div>Carregando usuários...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Edição de Usuário -->
+    <div id="modal-editar-usuario"
+      style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+      <div class="card" style="width: 100%; max-width: 400px; background: var(--surface);">
+        <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--accent);">✏️ Editar Usuário</h3>
+        <input type="hidden" id="edit-user-id" />
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="edit-user-nome" required />
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="edit-user-email" required />
+        </div>
+        <div class="form-group">
+          <label>Nova Senha (deixe em branco para não alterar)</label>
+          <input type="password" id="edit-user-senha" placeholder="******" />
+        </div>
+        <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+          <button class="btn primary" onclick="salvarEdicaoUsuario()" style="flex: 1;">Salvar Alterações</button>
+          <button class="btn" onclick="fecharModalEdicao()"
+            style="flex: 1; background: var(--surface3);">Cancelar</button>
+        </div>
+        <div id="msg-edit-status" style="font-size: 0.85rem; margin-top: 0.75rem; text-align: center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🟢 SCRIPTS -->
+  <script src="./api.js"></script>
+  <script src="./auth.js"></script>
+  <script src="./script.js"></script>
+</body>
+
+</html>

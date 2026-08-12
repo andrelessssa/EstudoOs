@@ -2,8 +2,10 @@ package com.estudoos.api.controller;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,10 +17,12 @@ import com.estudoos.api.dtos.CicloRequestDTO;
 import com.estudoos.api.dtos.CicloResponseDTO;
 import com.estudoos.api.model.CicloEstudo;
 import com.estudoos.api.model.Materia;
+import com.estudoos.api.model.Usuario;
 import com.estudoos.api.repository.MateriaRepository;
+import com.estudoos.api.repository.UsuarioRepository;
 import com.estudoos.api.service.CicloService;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/ciclo")
@@ -27,18 +31,26 @@ public class CicloController {
 
     private final CicloService cicloService;
     private final MateriaRepository materiaRepository;
+    private final UsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;
 
-    public CicloController(CicloService cicloService, MateriaRepository materiaRepository) {
+    public CicloController(CicloService cicloService, MateriaRepository materiaRepository, UsuarioRepository usuarioRepository) {
         this.cicloService = cicloService;
         this.materiaRepository = materiaRepository;
+        this.usuarioRepository = usuarioRepository;
         this.objectMapper = new ObjectMapper();
     }
 
+    private Usuario obterUsuarioAutenticado(Authentication authentication) {
+        String email = authentication.getName();
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado: " + email));
+    }
+
     @GetMapping("/ativo")
-    public ResponseEntity<?> buscarCicloAtivo() {
-        Long usuarioId = 1L; // Ajuste conforme a sua lógica de autenticação atual
-        CicloEstudo ciclo = cicloService.buscarCicloAtivo(usuarioId);
+    public ResponseEntity<?> buscarCicloAtivo(Authentication authentication) {
+        Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
+        CicloEstudo ciclo = cicloService.buscarCicloAtivo(usuarioLogado.getId());
         
         if (ciclo == null) {
             return ResponseEntity.ok(java.util.Map.of("ativo", false));
@@ -48,10 +60,11 @@ public class CicloController {
     }
 
     @PostMapping("/gerar")
-    public ResponseEntity<CicloResponseDTO> gerarCiclo(@RequestBody CicloRequestDTO request) {
-       List<Materia> materias = materiaRepository.findAllById(
-    request.materiasIds().stream().map(Long::valueOf).toList()
-);
+    public ResponseEntity<CicloResponseDTO> gerarCiclo(@RequestBody CicloRequestDTO request, Authentication authentication) {
+        Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
+        List<Materia> materias = materiaRepository.findByUsuarioId(usuarioLogado.getId()).stream()
+            .filter(m -> request.materiasIds().contains(String.valueOf(m.getId())))
+            .collect(Collectors.toList());
 
         if (materias.isEmpty()) {
             return ResponseEntity.badRequest().body(
@@ -63,11 +76,9 @@ public class CicloController {
 
         try {
             String jsonConteudo = objectMapper.writeValueAsString(response);
-            Long usuarioId = 1L; // Ajuste conforme o usuário logado
             LocalDate inicio = LocalDate.parse(request.dataInicio());
             LocalDate fim = LocalDate.parse(request.dataFim());
-            
-            cicloService.salvarOuAtualizarCiclo(usuarioId, jsonConteudo, inicio, fim);
+            cicloService.salvarOuAtualizarCiclo(usuarioLogado.getId(), jsonConteudo, inicio, fim);
         } catch (Exception e) {
             System.err.println("Erro ao salvar ciclo gerado no banco: " + e.getMessage());
         }

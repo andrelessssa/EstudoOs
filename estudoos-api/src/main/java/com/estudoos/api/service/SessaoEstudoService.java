@@ -225,8 +225,34 @@ public class SessaoEstudoService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Map<String, java.util.List<String>> obterRelatorioSimuladoPorUsuario(Long usuarioId, String start, String end) {
+        LocalDate dataInicio = LocalDate.parse(start);
+        LocalDate dataFim = LocalDate.parse(end);
+        if (dataFim.isBefore(dataInicio)) {
+            LocalDate swap = dataInicio;
+            dataInicio = dataFim;
+            dataFim = swap;
+        }
+
+        return sessaoEstudoRepository.findByUsuarioIdAndDataSessaoBetween(usuarioId, dataInicio, dataFim).stream()
+                .collect(Collectors.groupingBy(
+                    s -> s.getMateria() != null ? s.getMateria().getNome() : "Geral",
+                    Collectors.flatMapping(
+                        s -> s.getTopicos() != null ? s.getTopicos().stream().map(Topico::getNome) : java.util.stream.Stream.empty(),
+                        Collectors.collectingAndThen(Collectors.toSet(), java.util.ArrayList::new)
+                    )
+                ));
+    }
+
+    @Transactional(readOnly = true)
     public java.util.Map<String, java.util.List<String>> obterRelatorioSimuladoPorEmail(String email, String periodo) {
         Usuario usuario = obterUsuarioPorEmail(email);
         return obterRelatorioSimuladoPorUsuario(usuario.getId(), periodo);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, java.util.List<String>> obterRelatorioSimuladoPorEmail(String email, String start, String end) {
+        Usuario usuario = obterUsuarioPorEmail(email);
+        return obterRelatorioSimuladoPorUsuario(usuario.getId(), start, end);
     }
 }

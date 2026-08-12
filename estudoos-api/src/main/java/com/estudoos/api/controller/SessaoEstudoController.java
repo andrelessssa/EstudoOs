@@ -86,10 +86,18 @@ public class SessaoEstudoController {
     }
     @GetMapping("/relatorio")
     public ResponseEntity<Map<String, List<String>>> obterRelatorioSimulado(
-            @RequestParam(defaultValue = "semana") String periodo, 
+            @RequestParam(required = false) String periodo,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
             Authentication authentication) {
         String email = authentication.getName();
-        Map<String, List<String>> relatorio = sessaoEstudoService.obterRelatorioSimuladoPorEmail(email, periodo);
+        Map<String, List<String>> relatorio;
+
+        if (start != null && end != null) {
+            relatorio = sessaoEstudoService.obterRelatorioSimuladoPorEmail(email, start, end);
+        } else {
+            relatorio = sessaoEstudoService.obterRelatorioSimuladoPorEmail(email, periodo == null ? "semana" : periodo);
+        }
         return ResponseEntity.ok(relatorio);
     }
 }
