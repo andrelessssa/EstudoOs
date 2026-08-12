@@ -8,4 +8,5 @@ import com.estudoos.api.model.CicloEstudo;
 
 public interface CicloRepository extends JpaRepository<CicloEstudo, Long> {
     Optional<CicloEstudo> findByUsuarioId(Long usuarioId);
+    void deleteByUsuarioId(Long usuarioId);
 }

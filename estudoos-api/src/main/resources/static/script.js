@@ -53,6 +53,7 @@ function showPage(id) {
   if (id === 'cadastrar' && typeof aplicarControleAcesso === 'function') {
     aplicarControleAcesso();
   }
+  try { localStorage.setItem('studyos_active_page', id); } catch (e) {}
 }
 
 function toggleTopics(id) {
@@ -889,16 +890,15 @@ async function saveSession() {
 
         // Salva a atualização na nuvem (banco de dados)
         try {
-          await fetchComAuth('/ciclo/gerar-avancado', {
+          await fetchComAuth('/ciclo/gerar', {
             method: 'POST',
             body: JSON.stringify({
-              start: cicloAtual.config.start,
-              end: cicloAtual.config.end,
-              hours: cicloAtual.config.hours,
-              priority: cicloAtual.config.priority,
-              activeDays: cicloAtual.config.activeDays,
-              estatisticasAtualizadas: true,
-              dias: cicloAtual.dias
+              dataInicio: cicloAtual.config.start,
+              dataFim: cicloAtual.config.end,
+              diasSemana: cicloAtual.config.activeDays,
+              horasPorDia: cicloAtual.config.hours,
+              prioridade: cicloAtual.config.priority,
+              materiasIds: cicloAtual.config.selectedMatIds || []
             })
           });
         } catch (err) {
@@ -1349,10 +1349,18 @@ function renderConcurso() {
       title: 'Matérias e assuntos carregados',
       content: `Encontramos ${totalMaterias} matéria(s) e ${totalAssuntos} assunto(s) cadastrados no seu banco de dados. Agora basta colar o edital acima e processar a análise.`,
     });
+    // Renderiza concursos salvos (local ou servidor)
+    Promise.resolve(loadConcursosFromStorage()).then(concursos => {
+      if (concursos && concursos.length) renderConcursoCards(container, concursos);
+    });
   }).catch(() => {
     container.innerHTML = criarCartaoConcurso({
       title: 'Não foi possível carregar seus dados',
       content: 'Verifique se você está autenticado e se o servidor está respondendo. A aba Concurso precisa das matérias e assuntos já cadastrados.',
+    });
+    // Mesmo em falha de carregamento do servidor, mostra concursos locais
+    Promise.resolve(loadConcursosFromStorage()).then(concursos => {
+      if (concursos && concursos.length) renderConcursoCards(container, concursos);
     });
   });
 }
@@ -1462,32 +1470,242 @@ async function processarEdital() {
     ? `<div style="margin-top: 1rem;"><strong style="color: var(--coral);">Assuntos faltantes</strong><ul style="margin: 0.75rem 0 0 1rem; color: var(--text);">${missing.map(item => `<li>${item}</li>`).join('')}</ul></div>`
     : `<div style="margin-top: 1rem; color: var(--green);">Todos os assuntos do edital já existem no banco de dados!</div>`;
 
-  container.innerHTML = `
-    <div class="card" style="border:1px solid var(--border);">
-      <div class="card-title">✅ Resultado da Análise</div>
-      <div style="color: var(--text); font-size: 0.95rem; line-height: 1.6;">Concurso: <strong>${nome}</strong></div>
-      <div style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">Prova em ${new Date(data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
-        ${resumoItems.map(item => `<span style="background: var(--surface2); padding: 0.8rem 1rem; border-radius: 12px; font-size: 0.9rem;">${item}</span>`).join('')}
-      </div>
-    </div>
+  // Cria objeto do concurso para persistir localmente e exibir em cards compactos
+  const concursoObj = {
+    id: Date.now().toString(),
+    nome,
+    data,
+    topics,
+    matched,
+    missing,
+    total,
+    done,
+    coverage,
+    createdAt: new Date().toISOString()
+  };
 
-    <div class="card" style="border:1px solid var(--border);">
-      <div class="card-title">Matérias com assuntos identificados</div>
-      ${materiasItems.length ? materiasItems.join('') : '<div class="empty"><div class="empty-icon">📦</div>Nenhum assunto do edital encontra correspondência com o seu banco de assuntos.</div>'}
-    </div>
+  // Se autenticado, tente salvar no servidor e usar o id retornado
+  if (getAuthToken()) {
+    try {
+      const resp = await fetchComAuth('/concursos', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: concursoObj.nome,
+          data: concursoObj.data,
+          json: JSON.stringify(concursoObj),
+        })
+      });
+      if (resp.ok) {
+        const body = await resp.json();
+        if (body && body.id) concursoObj.id = body.id;
+        // sincroniza a lista do servidor para garantir consistência entre navegadores
+        try {
+          const listaResp = await fetchComAuth('/concursos');
+          if (listaResp.ok) {
+            const srvList = await listaResp.json();
+            const parsed = srvList.map(i => {
+              try { const j = i.jsonConteudo ? JSON.parse(i.jsonConteudo) : {}; return { id: i.id, nome: i.nome, data: i.data, ...j }; } catch (e) { return { id: i.id, nome: i.nome, data: i.data }; }
+            });
+            localStorage.setItem('studyos_concursos', JSON.stringify(parsed));
+          }
+        } catch (e) { /* ignore sync errors */ }
+      }
+    } catch (e) {
+      console.log('Falha ao salvar concurso no servidor, salvando localmente.');
+    }
+  }
 
-    <div class="card" style="border:1px solid var(--border);">
-      <div class="card-title">Assuntos extraídos do edital</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">
-        ${topics.map(topic => {
-          const presente = missing.indexOf(topic) === -1;
-          return `<span style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 0.9rem;border-radius:999px;background:${presente ? 'rgba(74, 222, 128, 0.12)' : 'rgba(248, 113, 113, 0.12)'};color:${presente ? 'var(--green)' : 'var(--coral)'};font-size:0.9rem;">${presente ? '✔' : '✖'} ${topic}</span>`;
-        }).join('')}
+  // Carrega concursos existentes do localStorage e adiciona
+  const existing = JSON.parse(localStorage.getItem('studyos_concursos') || '[]');
+  existing.unshift(concursoObj); // adicionar no topo
+  localStorage.setItem('studyos_concursos', JSON.stringify(existing));
+
+  // Re-renderiza a lista de concursos usando o novo resumo e detalhes
+  renderConcurso();
+
+  // Limpa o formulário após criar o card
+  try {
+    const elNome = document.getElementById('c-nome'); if (elNome) elNome.value = '';
+    const elData = document.getElementById('c-data'); if (elData) elData.value = '';
+    const elEdital = document.getElementById('c-edital'); if (elEdital) elEdital.value = '';
+  } catch (e) { /* ignore */ }
+
+  // Limpa o formulário após gerar o card
+  try {
+    const nomeEl = document.getElementById('c-nome');
+    const dataEl = document.getElementById('c-data');
+    const editalEl = document.getElementById('c-edital');
+    if (nomeEl) nomeEl.value = '';
+    if (dataEl) dataEl.value = '';
+    if (editalEl) editalEl.value = '';
+    if (nomeEl) nomeEl.focus();
+  } catch (e) {}
+}
+
+function loadConcursosFromStorage() {
+  try {
+    // se estiver autenticado, busque do servidor primeiro
+    if (getAuthToken()) {
+      return (async () => {
+        try {
+          const res = await fetchComAuth('/concursos');
+          if (res.ok) {
+              const list = await res.json();
+            // cada item contém jsonConteudo (string) — tente parsear
+            const parsed = list.map(i => {
+              try {
+                const j = i.jsonConteudo ? JSON.parse(i.jsonConteudo) : {};
+                return { id: i.id, nome: i.nome, data: i.data, ...j };
+              } catch (e) {
+                return { id: i.id, nome: i.nome, data: i.data };
+              }
+            });
+            // also sync to localStorage
+            localStorage.setItem('studyos_concursos', JSON.stringify(parsed));
+            return parsed;
+            }
+            // se a resposta não foi OK, cai para fallback
+            return JSON.parse(localStorage.getItem('studyos_concursos') || '[]');
+        } catch (e) {
+          console.log('Erro ao buscar concursos do servidor, usando localStorage.');
+            return JSON.parse(localStorage.getItem('studyos_concursos') || '[]');
+        }
+      })();
+    }
+
+    return JSON.parse(localStorage.getItem('studyos_concursos') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveConcursosToStorage(list) {
+  localStorage.setItem('studyos_concursos', JSON.stringify(list || []));
+}
+
+function toggleExpandConcurso(id) {
+  const el = document.getElementById('concurso-details-' + id);
+  const btn = document.getElementById('concurso-toggle-' + id);
+  if (!el) return;
+  const open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  if (btn) btn.textContent = open ? '🔽' : '🔼';
+}
+
+async function excluirConcurso(id) {
+  if (!confirm('Remover este concurso?')) return;
+
+  // Se autenticado, remova no servidor também
+  if (getAuthToken()) {
+    try {
+      await fetchComAuth(`/concursos/${id}`, { method: 'DELETE' });
+    } catch (e) { /* continue */ }
+  }
+
+  let list = loadConcursosFromStorage();
+  if (list && typeof list.then === 'function') {
+    try { list = await list; } catch (e) { list = []; }
+  }
+
+  list = (Array.isArray(list) ? list : []).filter(c => String(c.id) !== String(id));
+  saveConcursosToStorage(list);
+  renderConcurso();
+}
+
+function renderConcursoCards(container, concursos) {
+  if (!container) return;
+  if (!concursos || !concursos.length) {
+    // mantém card inicial explicativo
+    return;
+  }
+
+  const html = concursos.map(c => {
+    const dias = calcularTempoRestante(c.data) || 'Data inválida';
+    const pct = c.coverage + '%';
+    const remaining = c.missing ? c.missing.length : 0;
+
+    const materiasIdent = Array.from(new Map((c.matched || []).map(m => [m.materia, []]))).map(k => k[0]);
+
+    return `
+      <div class="card concurso-card">
+        <div class="concurso-main-row">
+          <div class="concurso-left">
+            <div class="concurso-days">${dias.split(' ')[0] || dias}</div>
+            <div class="concurso-days-label">${dias.includes('Prova') ? dias : 'restantes'}</div>
+          </div>
+          <div class="concurso-body">
+            <div class="concurso-header">
+              <div class="concurso-title">${c.nome}</div>
+              <div style="text-align:right;">
+                <div class="concurso-pct" style="color:${c.coverage === 100 ? 'var(--green)' : 'var(--muted)'}">${pct}</div>
+              </div>
+            </div>
+            <div class="concurso-sub">${c.done}/${c.total} assuntos detectados</div>
+            <div class="progress-track"><div class="progress-fill" style="width:${100 - c.coverage}%; background: linear-gradient(90deg, var(--green), #2dd4bf); height:8px;"></div></div>
+          </div>
+          <div class="concurso-actions">
+            <button class="btn sm danger" onclick="excluirConcurso('${c.id}')">🗑</button>
+            <button id="concurso-toggle-${c.id}" class="btn sm" onclick="toggleExpandConcurso('${c.id}')">🔼</button>
+          </div>
+        </div>
+
+        <div id="concurso-details-${c.id}" class="concurso-details" style="display:none;">
+          <div class="concurso-details-inner">
+            <div class="concurso-detail-section">
+              <div class="concurso-detail-title">Matérias identificadas</div>
+              <div class="concurso-detail-list">${(c.matched && c.matched.length) ? c.matched.map(m => `<div class=\"concurso-match\"><strong>${m.materia}</strong>: ${m.editalTopic} → ${m.topico}</div>`).join('') : '<div class="empty" style="padding:0.75rem;">Nenhuma correspondência encontrada</div>'}</div>
+            </div>
+            ${(c.missing && c.missing.length) ? `<div class="concurso-detail-section" style="margin-top:12px;"><div class="concurso-detail-title" style="color:var(--coral);">Assuntos faltantes</div><ul style="margin:6px 0 0 1rem; color:var(--text);">${c.missing.map(t => `<li>${t}</li>`).join('')}</ul></div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('\n');
+
+  container.insertAdjacentHTML('beforeend', html);
+}
+
+function showConcursoFullView(id) {
+  Promise.resolve(loadConcursosFromStorage()).then(concursos => {
+    const c = (concursos || []).find(x => String(x.id) === String(id));
+    if (!c) return alert('Concurso não encontrado');
+
+    // cria modal
+    const modal = document.createElement('div');
+    modal.className = 'concurso-fullmodal';
+    modal.innerHTML = `
+    <div class="concurso-fullcard">
+      <button class="concurso-full-close btn sm" onclick="this.closest('.concurso-fullmodal').remove()">Fechar</button>
+      <div class="card" style="border:1px solid var(--border); margin-bottom:1rem;">
+        <div class="card-title">✅ Resultado da Análise</div>
+        <div style="color: var(--text); font-size: 0.95rem; line-height: 1.6;">Concurso: <strong>${c.nome}</strong></div>
+        <div style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">Prova em ${new Date(c.data).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;">${[
+          `Total de assuntos no edital: <strong>${c.total}</strong>`,
+          `Assuntos já presentes no banco: <strong>${c.done}</strong>`,
+          `Assuntos faltantes: <strong>${c.missing.length}</strong>`,
+          `Cobertura do edital: <strong>${c.coverage}%</strong>`,
+          `Tempo restante até a prova: <strong>${calcularTempoRestante(c.data) || 'Data inválida'}</strong>`
+        ].map(item => `<span style="background: var(--surface2); padding: 0.8rem 1rem; border-radius: 12px; font-size: 0.9rem;">${item}</span>`).join('')}</div>
       </div>
-      ${missingHtml}
+
+      <div class="card" style="border:1px solid var(--border); margin-bottom:1rem;">
+        <div class="card-title">Matérias com assuntos identificados</div>
+        ${(c.matched && c.matched.length) ? c.matched.map(m => `<div style="margin-bottom: 1rem;"><strong style="color: var(--accent);">${m.materia}</strong> — 1 assunto(s) identificado<ul style="margin: 0.5rem 0 0 1rem; color: var(--text);"><li>${m.editalTopic} → ${m.topico}</li></ul></div>`).join('') : '<div class="empty"><div class="empty-icon">📦</div>Nenhuma correspondência encontrada.</div>'}
+      </div>
+
+      <div class="card" style="border:1px solid var(--border);">
+        <div class="card-title">Assuntos extraídos do edital</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0.75rem;">${c.topics.map(t => {
+          const presente = c.missing.indexOf(t) === -1;
+          return `<span style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 0.9rem;border-radius:999px;background:${presente ? 'rgba(74, 222, 128, 0.12)' : 'rgba(248, 113, 113, 0.12)'};color:${presente ? 'var(--green)' : 'var(--coral)'};font-size:0.9rem;">${presente ? '✔' : '✖'} ${t}</span>`;
+        }).join('')}</div>
+        ${(c.missing && c.missing.length) ? `<div style="margin-top:1rem;"><strong style="color:var(--coral);">Assuntos faltantes</strong><ul style="margin: 0.75rem 0 0 1rem; color: var(--text);">${c.missing.map(item => `<li>${item}</li>`).join('')}</ul></div>` : `<div style="margin-top:1rem; color: var(--green);">Todos os assuntos do edital já existem no banco de dados!</div>`}
+      </div>
     </div>
   `;
+
+    document.body.appendChild(modal);
+  }).catch(e => { alert('Erro ao carregar concurso'); });
 }
 
 function openRelatorioPeriodoPanel() {
@@ -1798,6 +2016,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   verificarAutenticacaoEInicializar();
+
+  // Restaurar aba ativa anteriormente selecionada (se existir)
+  try {
+    const active = localStorage.getItem('studyos_active_page');
+    if (active) showPage(active);
+  } catch (e) { /* ignore */ }
 });
 
 // ─── CICLO IA LOGIC ──────────────────────────────────────────────────────────
@@ -1979,10 +2203,17 @@ async function gerarCicloIA() {
     }))
   }));
 
-  try {
-    const resp = await fetchComAuth('/ciclo/gerar-avancado', {
+    try {
+    const resp = await fetchComAuth('/ciclo/gerar', {
       method: 'POST',
-      body: JSON.stringify({ start, end, hours, priority, activeDays, studyDays, materiasData })
+      body: JSON.stringify({
+        dataInicio: start,
+        dataFim: end,
+        diasSemana: activeDays,
+        horasPorDia: hours,
+        prioridade: priority,
+        materiasIds: selectedMatIds
+      })
     });
 
     clearInterval(msgInterval);
@@ -2209,26 +2440,32 @@ async function toggleCicloBlock(blockId, dayIdx) {
   saveCiclo(ciclo);
   renderCicloPlano(ciclo);
 
-  try {
-    await fetchComAuth('/ciclo/gerar-avancado', {
-      method: 'POST',
-      body: JSON.stringify({
-        start: ciclo.config.start,
-        end: ciclo.config.end,
-        hours: ciclo.config.hours,
-        priority: ciclo.config.priority,
-        activeDays: ciclo.config.activeDays,
-        estatisticasAtualizadas: true,
-        dias: ciclo.dias
-      })
-    });
-  } catch (e) {
-    console.log("Progresso salvo localmente.");
-  }
+    try {
+      await fetchComAuth('/ciclo/gerar', {
+        method: 'POST',
+        body: JSON.stringify({
+          dataInicio: ciclo.config.start,
+          dataFim: ciclo.config.end,
+          diasSemana: ciclo.config.activeDays,
+          horasPorDia: ciclo.config.hours,
+          prioridade: ciclo.config.priority,
+          materiasIds: ciclo.config.materiasIds || []
+        })
+      });
+    } catch (e) {
+      console.log("Progresso salvo localmente.");
+    }
 }
 
-function clearCiclo() {
+async function clearCiclo() {
   if (!confirm('Remover o plano gerado? O progresso dos assuntos já marcados será mantido nas Matérias.')) return;
+
+  try {
+    await fetchComAuth('/ciclo', { method: 'DELETE' });
+  } catch (e) {
+    console.log('Falha ao remover o plano no servidor, prosseguindo localmente.');
+  }
+
   localStorage.removeItem('studyos_ciclo');
   renderCiclo();
 }

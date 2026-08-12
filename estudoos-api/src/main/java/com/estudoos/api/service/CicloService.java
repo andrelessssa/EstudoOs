@@ -57,6 +57,10 @@ public class CicloService {
         return cicloRepository.save(ciclo);
     }
 
+    public void deletarCicloPorUsuarioId(Long usuarioId) {
+        cicloRepository.findByUsuarioId(usuarioId).ifPresent(cicloRepository::delete);
+    }
+
     // ─── MÉTODOS DE GERAÇÃO INTELIGENTE ───────────────────────────────────────
 
     public CicloResponseDTO gerarCiclo(CicloRequestDTO request, List<Materia> materias) {

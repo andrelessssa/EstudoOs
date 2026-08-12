@@ -679,6 +679,49 @@ label {
    CICLO IA — Estilos
    ═══════════════════════════════════════════════════ */
 
+/* ── CONCURSO CARDS (modern) ── */
+.concurso-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0.8rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.concurso-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,6,23,0.7); }
+.concurso-main-row { display: flex; gap: 12px; align-items: center; }
+.concurso-left { display:flex; flex-direction:column; align-items:center; justify-content:center; width:92px; flex-shrink:0; }
+.concurso-days { font-family: var(--mono); font-size:28px; font-weight:800; color:var(--accent); }
+.concurso-days-label { font-size:11px; color:var(--muted); margin-top:4px; }
+.concurso-body { flex:1; min-width:0; }
+.concurso-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.concurso-title { font-size:15px; font-weight:700; color:var(--text); }
+.concurso-sub { font-size:12px; color:var(--muted); margin:6px 0 8px 0; }
+.concurso-pct { font-family: var(--mono); font-weight:800; font-size:14px; }
+.concurso-actions { display:flex; flex-direction:column; gap:8px; align-items:center; }
+.concurso-actions .btn { padding:.4rem .6rem; font-size:12px; }
+.concurso-details { margin-top:8px; padding:10px; background: linear-gradient(90deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); border-radius:10px; }
+.concurso-detail-title { font-weight:700; color:var(--muted); font-size:12px; margin-bottom:6px; }
+.concurso-match { font-size:13px; color:var(--text); margin-bottom:6px; }
+
+/* Progress bar inverted: shows remaining as accent */
+.concurso-card .progress-track { height:8px; background: rgba(255,255,255,0.03); border-radius:99px; }
+.concurso-card .progress-fill { height:100%; border-radius:99px; transition: width .6s ease; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+/* Full modal */
+.concurso-fullmodal { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg, rgba(2,6,23,0.6), rgba(2,6,23,0.85)); z-index:99999; padding:1rem; }
+.concurso-fullcard { width:100%; max-width:900px; border-radius:12px; padding:1rem; background: linear-gradient(180deg, var(--surface2), rgba(27,35,48,0.9)); border:1px solid var(--border); box-shadow: 0 30px 60px rgba(2,6,23,0.8); }
+.concurso-full-close { position:absolute; right:20px; top:20px; }
+
+@media (max-width: 720px) {
+  .concurso-main-row { flex-direction: row; }
+  .concurso-left { width:72px; }
+  .concurso-actions { flex-direction:row; }
+}
+
 .ciclo-config-panel {
   background: var(--surface);
   border: 1px solid var(--border2);
@@ -929,6 +972,90 @@ label {
 .ciclo-empty-desc { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
 
 .ciclo-stats-wrap { margin-bottom: 1rem; }
+
+/* ── CONCURSO: card compacto (lista de editais) ── */
+.concurso-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,90,60,0.04), rgba(45,212,191,0.02));
+  box-shadow: 0 6px 20px rgba(2,6,23,0.6);
+}
+
+.concurso-card > div[style] {
+  /* ensure inline-styles inside the card still wrap properly */
+  min-width: 0;
+}
+
+.concurso-card .progress-track { margin-top: 8px; }
+
+.concurso-card .btn.sm {
+  padding: 0.4rem 0.6rem;
+  font-size: 12px;
+}
+
+.concurso-card .empty { padding: 0.6rem 0; }
+
+/* detalhes expansíveis */
+#lista-concursos-container .card[id^="concurso-details-"] {
+  margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .concurso-card { padding: 0.75rem; }
+  .concurso-card > div { width: 100%; }
+  .concurso-card { gap: 0.5rem; }
+}
+
+/* Estrutura do card compacto */
+.concurso-main-row { display:flex; align-items:center; gap:1rem; }
+.concurso-left { flex:0 0 96px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.concurso-days { font-size:36px; font-weight:900; font-family:var(--mono); color:var(--accent); line-height:1; text-shadow: 0 6px 18px rgba(255,90,60,0.08); }
+.concurso-days-label { font-size:12px; color:var(--muted); margin-top:6px; }
+.concurso-body { flex:1; min-width:0; }
+.concurso-header { display:flex; justify-content:space-between; align-items:center; }
+.concurso-title { font-size:1rem; font-weight:700; color:var(--text); }
+.concurso-pct { font-family:var(--mono); font-weight:700; }
+.concurso-sub { margin-top:6px; color:var(--muted); font-size:13px; }
+.concurso-days { font-size:22px; font-weight:800; color:var(--green); line-height:1; }
+.concurso-days-label { font-size:11px; color:var(--muted); margin-top:4px; }
+.concurso-actions { flex:0 0 auto; display:flex; flex-direction:column; gap:6px; }
+.concurso-details { margin-top:10px; border-top:1px solid var(--border); padding-top:10px; }
+.concurso-detail-title { font-weight:700; margin-bottom:6px; }
+.concurso-detail-list .concurso-match { padding:6px 0; border-bottom:1px solid var(--border); }
+
+/* Barra de progresso reduzida apenas para os cards de concurso */
+.concurso-card .progress-track { height: 8px; border-radius: 99px; overflow: hidden; background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04)); margin-top:10px; }
+.concurso-card .progress-fill { height: 100%; border-radius: 99px; transition: width .6s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.45); opacity: 0.98; }
+
+.concurso-card:hover { transform: translateY(-4px); transition: transform .18s ease; }
+
+.concurso-title { display:flex; align-items:center; gap:0.5rem; }
+.concurso-title::before { content: '🎯'; font-size:14px; opacity:0.95; }
+
+/* Modal da visão completa do concurso */
+.concurso-fullmodal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,14,20,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.concurso-fullcard {
+  width: 100%;
+  max-width: 920px;
+  max-height: 90vh;
+  overflow: auto;
+}
+.concurso-full-close { position: sticky; top: 10px; margin-left: auto; display:block; }
+
+/* Garantir que detalhes não fiquem centralizados */
+.concurso-details-inner { display:block; }
 
 /* ==========================================================================
    📱 REGRAS DE MEDIA QUERIES (TABLET & MOBILE)
