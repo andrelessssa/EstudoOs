@@ -2,6 +2,8 @@ package com.estudoos.api.controller;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
@@ -63,8 +65,13 @@ public class CicloController {
     @PostMapping("/gerar")
     public ResponseEntity<CicloResponseDTO> gerarCiclo(@RequestBody CicloRequestDTO request, Authentication authentication) {
         Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
-        List<Materia> materias = materiaRepository.findByUsuarioId(usuarioLogado.getId()).stream()
-            .filter(m -> request.materiasIds().contains(String.valueOf(m.getId())))
+        // Monta a lista de matérias na ordem informada pelo cliente (request.materiasIds)
+        List<String> requested = request.materiasIds();
+        List<Materia> all = materiaRepository.findByUsuarioId(usuarioLogado.getId());
+        Map<String, Materia> map = all.stream().collect(Collectors.toMap(m -> String.valueOf(m.getId()), m -> m));
+        List<Materia> materias = requested.stream()
+            .map(map::get)
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
 
         if (materias.isEmpty()) {

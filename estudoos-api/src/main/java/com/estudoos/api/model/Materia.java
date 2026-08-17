@@ -46,5 +46,6 @@ public class Materia {
     // 🔴 MAPEAMENTO CORRETO: Apaga todos os Tópicos associados automaticamente
     @OneToMany(mappedBy = "materia", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnoreProperties({"materia", "hibernateLazyInitializer", "handler"})
+    @jakarta.persistence.OrderBy("id ASC")
     private List<Topico> topicos = new ArrayList<>();
 }

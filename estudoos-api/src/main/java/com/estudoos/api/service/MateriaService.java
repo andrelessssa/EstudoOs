@@ -106,7 +106,7 @@ public class MateriaService {
             throw new RuntimeException("Matéria não encontrada ou acesso negado para ID: " + id);
         }
 
-        List<Topico> topicos = topicoRepository.findByMateriaId(id);
+        List<Topico> topicos = topicoRepository.findByMateriaIdOrderByIdAsc(id);
 
         for (Topico topico : topicos) {
             revisaoRepository.deleteByTopicoIdAndUsuarioId(topico.getId(), usuarioId);

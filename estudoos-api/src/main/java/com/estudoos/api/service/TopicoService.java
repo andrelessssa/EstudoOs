@@ -36,7 +36,7 @@ public class TopicoService {
 
     // 🔍 Listar tópicos por matéria
     public List<Topico> listarPorMateria(Long materiaId) {
-        return topicoRepository.findByMateriaId(materiaId);
+        return topicoRepository.findByMateriaIdOrderByIdAsc(materiaId);
     }
 
     // ✏️ Editar nome OU status de conclusão do tópico 🔄

@@ -86,7 +86,8 @@ public class CicloService {
             return CicloResponseDTO.vazio("Nenhum dia disponível no período com os dias da semana selecionados.");
         }
 
-        List<DiaDTO> dias = distribuirBlocosPorDia(blocosPendentes, diasDisponiveis, request.horasPorDia());
+        boolean sequentialMode = request.prioridade() == null || request.prioridade().isBlank() || request.prioridade().equals("sequential");
+        List<DiaDTO> dias = distribuirBlocosPorDia(blocosPendentes, diasDisponiveis, request.horasPorDia(), sequentialMode);
 
         enriquecerComDicasIA(dias);
 
@@ -123,9 +124,13 @@ public class CicloService {
 
         switch (prioridade) {
             case "weak" -> blocos.sort(Comparator.comparingInt(bloco -> bloco.progressoPct()));
-            case "sequential" -> {
+            case "random" -> Collections.shuffle(blocos);
+            case "sequential", "", null -> {
+                // mantém a ordem dos blocos conforme já coletados (materias top->down, tópicos em ordem)
             }
-            default -> Collections.shuffle(blocos);
+            default -> {
+                // outros valores também preservam a ordem
+            }
         }
 
         return blocos;
@@ -150,6 +155,36 @@ public class CicloService {
     }
 
     private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia) {
+        return distribuirBlocosPorDia(blocos, dias, horasPorDia, false);
+    }
+
+    private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia, boolean sequentialMode) {
+        if (sequentialMode) {
+            Queue<BlocoRaw> fila = new LinkedList<>(blocos);
+            List<DiaDTO> resultado = new ArrayList<>();
+
+            for (LocalDate dia : dias) {
+                if (fila.isEmpty()) break;
+                List<BlocoDTO> blocosNoDia = new ArrayList<>();
+                for (int slot = 0; slot < horasPorDia; slot++) {
+                    BlocoRaw escolhido = fila.poll();
+                    if (escolhido == null) break;
+                    blocosNoDia.add(new BlocoDTO(
+                        UUID.randomUUID().toString(),
+                        escolhido.matId(),
+                        escolhido.materia(),
+                        escolhido.topicId(),
+                        escolhido.assunto(),
+                        null,
+                        false
+                    ));
+                }
+                resultado.add(new DiaDTO(dia.format(FMT), blocosNoDia));
+            }
+
+            return resultado;
+        }
+
         Queue<BlocoRaw> filaCalculo = new LinkedList<>();
         Queue<BlocoRaw> filaTeoria = new LinkedList<>();
 
