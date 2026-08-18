@@ -106,16 +106,16 @@ public class CicloService {
         List<BlocoRaw> blocos = new ArrayList<>();
         // Sequencial: percorre as matérias na ordem enviada e adiciona todos os tópicos pendentes de cada uma,
         // mantendo a ordem dos tópicos dentro da matéria. Remove duplicatas por nome normalizado.
-        Set<String> seenNormalizedNames = new HashSet<>();
+        Set<String> seenTopicIds = new HashSet<>();
         for (Materia m : materias) {
             List<Topico> pendentes = m.getTopicos().stream()
                 .filter(t -> !t.isConcluido())
                 .collect(Collectors.toList());
 
             for (Topico t : pendentes) {
-                String norm = normalizeName(t.getNome());
-                if (seenNormalizedNames.contains(norm)) continue;
-                seenNormalizedNames.add(norm);
+                String tid = String.valueOf(t.getId());
+                if (seenTopicIds.contains(tid)) continue;
+                seenTopicIds.add(tid);
                 blocos.add(new BlocoRaw(
                     String.valueOf(m.getId()),
                     m.getNome(),
