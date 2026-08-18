@@ -104,24 +104,32 @@ public class CicloService {
 
     private List<BlocoRaw> coletarBlocosPendentes(List<Materia> materias, String prioridade) {
         List<BlocoRaw> blocos = new ArrayList<>();
-
-        // evita duplicar tópicos com mesmo id (por segurança)
-        Set<String> seenTopicIds = new HashSet<>();
-
+        // Organiza pendências por matéria mantendo a ordem de tópicos
+        List<List<Topico>> pendenciasPorMateria = new ArrayList<>();
         for (Materia m : materias) {
             List<Topico> pendentes = m.getTopicos().stream()
                 .filter(t -> !t.isConcluido())
                 .collect(Collectors.toList());
+            pendenciasPorMateria.add(pendentes);
+        }
 
-            for (Topico t : pendentes) {
-                String tid = String.valueOf(t.getId());
-                if (seenTopicIds.contains(tid)) continue;
-                seenTopicIds.add(tid);
+        // Round-robin: pega o primeiro tópico de cada matéria, depois o segundo, e assim por diante
+        Set<String> seenNormalizedNames = new HashSet<>();
+        int maxLen = pendenciasPorMateria.stream().mapToInt(List::size).max().orElse(0);
+        for (int idx = 0; idx < maxLen; idx++) {
+            for (int mi = 0; mi < materias.size(); mi++) {
+                List<Topico> lista = pendenciasPorMateria.get(mi);
+                if (idx >= lista.size()) continue;
+                Topico t = lista.get(idx);
+                String norm = normalizeName(t.getNome());
+                if (seenNormalizedNames.contains(norm)) continue;
+                seenNormalizedNames.add(norm);
+                Materia m = materias.get(mi);
                 blocos.add(new BlocoRaw(
                     String.valueOf(m.getId()),
                     m.getNome(),
                     categorizar(m.getNome()),
-                    tid,
+                    String.valueOf(t.getId()),
                     t.getNome(),
                     0
                 ));
@@ -301,6 +309,11 @@ public class CicloService {
 
     private String escapar(String s) {
         return s == null ? "" : s.replace("\"", "\\\"").replace("\n", " ");
+    }
+
+    private String normalizeName(String s) {
+        if (s == null) return "";
+        return s.trim().toLowerCase().replaceAll("\s+"," ");
     }
 
     private record BlocoRaw(
