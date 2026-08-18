@@ -104,27 +104,18 @@ public class CicloService {
 
     private List<BlocoRaw> coletarBlocosPendentes(List<Materia> materias, String prioridade) {
         List<BlocoRaw> blocos = new ArrayList<>();
-        // Organiza pendências por matéria mantendo a ordem de tópicos
-        List<List<Topico>> pendenciasPorMateria = new ArrayList<>();
+        // Sequencial: percorre as matérias na ordem enviada e adiciona todos os tópicos pendentes de cada uma,
+        // mantendo a ordem dos tópicos dentro da matéria. Remove duplicatas por nome normalizado.
+        Set<String> seenNormalizedNames = new HashSet<>();
         for (Materia m : materias) {
             List<Topico> pendentes = m.getTopicos().stream()
                 .filter(t -> !t.isConcluido())
                 .collect(Collectors.toList());
-            pendenciasPorMateria.add(pendentes);
-        }
 
-        // Round-robin: pega o primeiro tópico de cada matéria, depois o segundo, e assim por diante
-        Set<String> seenNormalizedNames = new HashSet<>();
-        int maxLen = pendenciasPorMateria.stream().mapToInt(List::size).max().orElse(0);
-        for (int idx = 0; idx < maxLen; idx++) {
-            for (int mi = 0; mi < materias.size(); mi++) {
-                List<Topico> lista = pendenciasPorMateria.get(mi);
-                if (idx >= lista.size()) continue;
-                Topico t = lista.get(idx);
+            for (Topico t : pendentes) {
                 String norm = normalizeName(t.getNome());
                 if (seenNormalizedNames.contains(norm)) continue;
                 seenNormalizedNames.add(norm);
-                Materia m = materias.get(mi);
                 blocos.add(new BlocoRaw(
                     String.valueOf(m.getId()),
                     m.getNome(),
