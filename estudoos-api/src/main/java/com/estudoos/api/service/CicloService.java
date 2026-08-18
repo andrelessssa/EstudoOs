@@ -105,32 +105,36 @@ public class CicloService {
     private List<BlocoRaw> coletarBlocosPendentes(List<Materia> materias, String prioridade) {
         List<BlocoRaw> blocos = new ArrayList<>();
 
+        // evita duplicar tópicos com mesmo id (por segurança)
+        Set<String> seenTopicIds = new HashSet<>();
+
         for (Materia m : materias) {
             List<Topico> pendentes = m.getTopicos().stream()
                 .filter(t -> !t.isConcluido())
                 .collect(Collectors.toList());
 
             for (Topico t : pendentes) {
+                String tid = String.valueOf(t.getId());
+                if (seenTopicIds.contains(tid)) continue;
+                seenTopicIds.add(tid);
                 blocos.add(new BlocoRaw(
                     String.valueOf(m.getId()),
                     m.getNome(),
                     categorizar(m.getNome()),
-                    String.valueOf(t.getId()),
+                    tid,
                     t.getNome(),
                     0
                 ));
             }
         }
 
-        switch (prioridade) {
-            case "weak" -> blocos.sort(Comparator.comparingInt(bloco -> bloco.progressoPct()));
-            case "random" -> Collections.shuffle(blocos);
-            case "sequential", "", null -> {
-                // mantém a ordem dos blocos conforme já coletados (materias top->down, tópicos em ordem)
-            }
-            default -> {
-                // outros valores também preservam a ordem
-            }
+        String pr = prioridade == null ? "" : prioridade;
+        if ("weak".equals(pr)) {
+            blocos.sort(Comparator.comparingInt(bloco -> bloco.progressoPct()));
+        } else if ("random".equals(pr)) {
+            Collections.shuffle(blocos);
+        } else {
+            // 'sequential' or default -> preserve collected order (materias top->down, tópicos em ordem)
         }
 
         return blocos;

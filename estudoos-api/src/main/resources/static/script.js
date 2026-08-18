@@ -2357,7 +2357,7 @@ function renderCicloPlano(ciclo) {
                     title="${b.done ? 'Desmarcar' : 'Marcar como concluído'}"
                   ></div>
                   <div class="ciclo-block-content" style="cursor:pointer;" onclick="irParaCadernoDoCiclo('${b.matId}', '${b.topicId}')" title="Clique para abrir e anotar na aba Hoje">
-                    <div class="ciclo-block-mat">📖 ${b.materia} <span style="font-size:10px; color:var(--accent);">(Ir para Caderno ➔)</span></div>
+                    <div class="ciclo-block-mat">📖 ${b.materia}</div>
                     <div class="ciclo-block-topic">${b.assunto}</div>
                     ${b.dica ? `<div class="ciclo-block-tip">💡 ${b.dica}</div>` : ''}
                   </div>
