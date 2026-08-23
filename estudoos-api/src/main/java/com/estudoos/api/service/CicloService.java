@@ -86,8 +86,8 @@ public class CicloService {
             return CicloResponseDTO.vazio("Nenhum dia disponível no período com os dias da semana selecionados.");
         }
 
-        boolean sequentialMode = request.prioridade() == null || request.prioridade().isBlank() || request.prioridade().equals("sequential");
-        List<DiaDTO> dias = distribuirBlocosPorDia(blocosPendentes, diasDisponiveis, request.horasPorDia(), sequentialMode);
+        String prMode = request.prioridade() == null || request.prioridade().isBlank() ? "sequential" : request.prioridade();
+        List<DiaDTO> dias = distribuirBlocosPorDia(blocosPendentes, diasDisponiveis, request.horasPorDia(), prMode);
 
         enriquecerComDicasIA(dias);
 
@@ -159,11 +159,14 @@ public class CicloService {
     }
 
     private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia) {
-        return distribuirBlocosPorDia(blocos, dias, horasPorDia, false);
+        return distribuirBlocosPorDia(blocos, dias, horasPorDia, "");
     }
 
-    private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia, boolean sequentialMode) {
-        if (sequentialMode) {
+    private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia, String priorityMode) {
+        // priorityMode: "sequential" (uma matéria por vez, ordem original),
+        // "balanced" (round-robin entre matérias),
+        // "weak" / "random" / default -> mistura cálculo/teoria
+        if ("sequential".equals(priorityMode)) {
             Queue<BlocoRaw> fila = new LinkedList<>(blocos);
             List<DiaDTO> resultado = new ArrayList<>();
 
@@ -184,6 +187,60 @@ public class CicloService {
                     ));
                 }
                 resultado.add(new DiaDTO(dia.format(FMT), blocosNoDia));
+            }
+
+            return resultado;
+        }
+
+        if ("balanced".equals(priorityMode)) {
+            // Agrupa blocos por matéria preservando a ordem das matérias
+            LinkedHashMap<String, Queue<BlocoRaw>> porMat = new LinkedHashMap<>();
+            for (BlocoRaw b : blocos) {
+                porMat.computeIfAbsent(b.matId(), k -> new LinkedList<>()).add(b);
+            }
+
+            List<String> matKeys = new ArrayList<>(porMat.keySet());
+            int matIndex = 0;
+
+            List<DiaDTO> resultado = new ArrayList<>();
+
+            Iterator<LocalDate> itDias = dias.iterator();
+            while (itDias.hasNext()) {
+                LocalDate dia = itDias.next();
+                List<BlocoDTO> blocosNoDia = new ArrayList<>();
+                for (int slot = 0; slot < horasPorDia; slot++) {
+                    // Encontrar próxima matéria com blocos disponíveis
+                    boolean found = false;
+                    int attempts = 0;
+                    while (attempts < matKeys.size()) {
+                        String matId = matKeys.get(matIndex % matKeys.size());
+                        Queue<BlocoRaw> q = porMat.get(matId);
+                        matIndex = (matIndex + 1) % matKeys.size();
+                        attempts++;
+                        if (q != null && !q.isEmpty()) {
+                            BlocoRaw escolhido = q.poll();
+                            blocosNoDia.add(new BlocoDTO(
+                                UUID.randomUUID().toString(),
+                                escolhido.matId(),
+                                escolhido.materia(),
+                                escolhido.topicId(),
+                                escolhido.assunto(),
+                                null,
+                                false
+                            ));
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) break; // não há mais blocos em nenhuma matéria
+                }
+
+                resultado.add(new DiaDTO(dia.format(FMT), blocosNoDia));
+
+                // sair cedo se todas filas vazias
+                boolean anyLeft = porMat.values().stream().anyMatch(q -> q != null && !q.isEmpty());
+                if (!anyLeft) break;
             }
 
             return resultado;
@@ -259,9 +316,10 @@ public class CicloService {
         }
         sb.append("]");
 
-        String prompt = "Você é especialista em concursos públicos brasileiros. " +
-            "Para cada item abaixo, gere UMA dica de estudo objetiva (máx 15 palavras). " +
-            "A dica deve indicar a melhor técnica para estudar aquele assunto específico. " +
+        String prompt = "Você é especialista em preparação para concursos públicos brasileiros. " +
+            "Para cada item abaixo, gere UMA dica prática e objetiva (máx 12 palavras). " +
+            "Use técnicas efetivas de concursos: resolução de questões, revisão espaçada, resumos ativos, mapas mentais, simulados cronometrados. " +
+            "Prefira orientar por técnica (ex: 'Resolver 20 questões cronometradas') e, quando relevante, indique frequência semanal (ex: '2x/sem'). " +
             "Responda APENAS com JSON válido, sem texto extra, sem markdown: " +
             "[{\"idx\":0,\"dica\":\"...\"}, {\"idx\":1,\"dica\":\"...\"}] " +
             "Itens: " + sb.toString();
