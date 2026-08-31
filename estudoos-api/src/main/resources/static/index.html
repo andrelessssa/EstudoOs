@@ -125,9 +125,10 @@
         <textarea id="mat-topics" rows="6"
           placeholder="SQL&#10;Modelagem ER&#10;Normalização&#10;Transações&#10;Índices&#10;..."></textarea>
       </div>
-      <div style="display:flex;gap:.5rem;">
-        <button class="btn primary" onclick="saveMateria()">Salvar</button>
+      <div style="display:flex;gap:.5rem;align-items:center;">
+        <button id="btn-save-materia" class="btn primary" onclick="saveMateria()">Salvar</button>
         <button class="btn" onclick="closeMateriaPanel()">Cancelar</button>
+        <div id="mat-save-loading" style="font-size:13px;color:var(--muted);display:none;margin-left:.5rem;">Salvando...</div>
       </div>
     </div>
 

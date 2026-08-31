@@ -1143,6 +1143,8 @@ async function saveMateria() {
   const idEl = document.getElementById('mat-id-edit');
   const nameEl = document.getElementById('mat-name');
   const topEl = document.getElementById('mat-topics');
+  const btnSave = document.getElementById('btn-save-materia');
+  const loadingEl = document.getElementById('mat-save-loading');
 
   const matId = idEl ? idEl.value : '';
   const name = nameEl ? nameEl.value.trim() : '';
@@ -1152,6 +1154,14 @@ async function saveMateria() {
     alert('Informe o nome da matéria.');
     return;
   }
+
+  // Disable save button and show loading feedback to avoid multiple submissions
+  if (btnSave) {
+    btnSave.disabled = true;
+    btnSave.dataset.origText = btnSave.textContent;
+    btnSave.textContent = 'Salvando...';
+  }
+  if (loadingEl) loadingEl.style.display = 'inline-block';
 
   const novosTopicos = topicsRaw.split('\n').map(t => t.trim()).filter(Boolean);
 
@@ -1187,6 +1197,14 @@ async function saveMateria() {
 
   } catch (error) {
     console.error("Erro ao salvar matéria:", error);
+    alert('Erro ao salvar matéria. Veja o console para mais detalhes.');
+  } finally {
+    // Re-enable button and hide loading
+    if (btnSave) {
+      btnSave.disabled = false;
+      if (btnSave.dataset && btnSave.dataset.origText) btnSave.textContent = btnSave.dataset.origText;
+    }
+    if (loadingEl) loadingEl.style.display = 'none';
   }
 }
 
@@ -1592,14 +1610,27 @@ function toggleExpandConcurso(id) {
   if (btn) btn.textContent = open ? '🔽' : '🔼';
 }
 
-async function excluirConcurso(id) {
+async function excluirConcurso(id, btnEl) {
   if (!confirm('Remover este concurso?')) return;
 
-  // Se autenticado, remova no servidor também
+  // disable button to avoid double-clicks
+  if (btnEl) btnEl.disabled = true;
+
+  // Se autenticado, remova no servidor também e verifique resposta
   if (getAuthToken()) {
     try {
-      await fetchComAuth(`/concursos/${id}`, { method: 'DELETE' });
-    } catch (e) { /* continue */ }
+      const res = await fetchComAuth(`/concursos/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        if (res.status === 401) {
+          alert('Sessão expirada. Faça login novamente para excluir.');
+          if (btnEl) btnEl.disabled = false;
+          return;
+        }
+        console.warn('Falha ao excluir no servidor, status:', res.status);
+      }
+    } catch (e) {
+      console.warn('Erro ao chamar API de exclusão:', e);
+    }
   }
 
   let list = loadConcursosFromStorage();
@@ -1610,6 +1641,8 @@ async function excluirConcurso(id) {
   list = (Array.isArray(list) ? list : []).filter(c => String(c.id) !== String(id));
   saveConcursosToStorage(list);
   renderConcurso();
+
+  if (btnEl) btnEl.disabled = false;
 }
 
 function renderConcursoCards(container, concursos) {
@@ -1644,7 +1677,7 @@ function renderConcursoCards(container, concursos) {
             <div class="progress-track"><div class="progress-fill" style="width:${100 - c.coverage}%; background: linear-gradient(90deg, var(--green), #2dd4bf); height:8px;"></div></div>
           </div>
           <div class="concurso-actions">
-            <button class="btn sm danger" onclick="excluirConcurso('${c.id}')">🗑</button>
+            <button class="btn sm danger" onclick="excluirConcurso('${c.id}', this)">🗑</button>
             <button id="concurso-toggle-${c.id}" class="btn sm" onclick="toggleExpandConcurso('${c.id}')">🔼</button>
           </div>
         </div>
