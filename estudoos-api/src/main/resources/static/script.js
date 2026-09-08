@@ -90,6 +90,16 @@ function nextDashMonth() {
   renderDashboard();
 }
 
+// Wire calendar prev/next buttons (safe: DOM is available because script is loaded at end of body)
+try {
+  const prevBtn = document.getElementById('dash-prev-btn');
+  const nextBtn = document.getElementById('dash-next-btn');
+  if (prevBtn) prevBtn.addEventListener('click', prevDashMonth);
+  if (nextBtn) nextBtn.addEventListener('click', nextDashMonth);
+} catch (e) {
+  // fail silently in environments without DOM
+}
+
 // 📊 DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
