@@ -2,20 +2,20 @@ package com.estudoos.api.controller;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.model.Concurso;
@@ -94,7 +94,11 @@ public class ConcursoController {
         Usuario u = getUsuario(authentication);
         if (u == null) return ResponseEntity.status(401).build();
 
-        concursoService.deletarPorUsuario(id, u.getId());
-        return ResponseEntity.ok().build();
+        int deleted = concursoService.deletarPorUsuario(id, u.getId());
+        if (deleted > 0) {
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.status(404).body(Map.of("error", "Concurso not found or not owned by user"));
+        }
     }
 }

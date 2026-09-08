@@ -17,7 +17,7 @@ public class Topico {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, length = 500)
     private String nome;
 
     @Column(nullable = false)

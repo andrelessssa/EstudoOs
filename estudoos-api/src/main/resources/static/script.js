@@ -77,6 +77,19 @@ function dateStr(d) {
   return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+// Dashboard month offset navigation (safe, minimal)
+let dashMonthOffset = 0;
+
+function prevDashMonth() {
+  dashMonthOffset--;
+  renderDashboard();
+}
+
+function nextDashMonth() {
+  dashMonthOffset++;
+  renderDashboard();
+}
+
 // 📊 DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
@@ -160,7 +173,8 @@ async function renderDashboard() {
 
     const cal = document.getElementById('dash-calendar');
     if (cal) {
-      const now = new Date();
+      const base = new Date();
+      const now = new Date(base.getFullYear(), base.getMonth() + (dashMonthOffset || 0), 1);
       const year = now.getFullYear();
       const month = now.getMonth();
 

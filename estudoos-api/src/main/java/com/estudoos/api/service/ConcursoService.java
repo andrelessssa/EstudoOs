@@ -28,7 +28,7 @@ public class ConcursoService {
         return concursoRepository.save(concurso);
     }
 
-    public void deletarPorUsuario(Long id, Long usuarioId) {
-        concursoRepository.deleteByIdAndUsuarioId(id, usuarioId);
+    public int deletarPorUsuario(Long id, Long usuarioId) {
+        return concursoRepository.deleteByIdAndUsuarioId(id, usuarioId);
     }
 }

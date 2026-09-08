@@ -1,6 +1,24 @@
 package com.estudoos.api.service;
 
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
 import com.estudoos.api.dtos.CicloRequestDTO;
 import com.estudoos.api.dtos.CicloResponseDTO;
 import com.estudoos.api.dtos.CicloResponseDTO.BlocoDTO;
@@ -9,14 +27,8 @@ import com.estudoos.api.model.CicloEstudo;
 import com.estudoos.api.model.Materia;
 import com.estudoos.api.model.Topico;
 import com.estudoos.api.repository.CicloRepository;
-import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class CicloService {

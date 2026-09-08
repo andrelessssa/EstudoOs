@@ -17,5 +17,5 @@ public interface ConcursoRepository extends JpaRepository<Concurso, Long> {
     @Transactional
     @Modifying
     @Query("DELETE FROM Concurso c WHERE c.id = :id AND c.usuario.id = :usuarioId")
-    void deleteByIdAndUsuarioId(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
+    int deleteByIdAndUsuarioId(@Param("id") Long id, @Param("usuarioId") Long usuarioId);
 }
