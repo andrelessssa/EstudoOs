@@ -196,17 +196,19 @@
       <h3
         style="font-size: 0.9rem; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase;">
         Notas Rápidas da Sessão</h3>
-      <textarea id="session-notes" placeholder="Anote pontos importantes, dúvidas, lembretes..."
-        oninput="autoGrowNotes(this)"
-        style="width: 100%; min-height: 180px; overflow-y: hidden; resize: none; margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: inherit; line-height: 1.6;"></textarea>
+      <div id="session-notes-wrap" style="position:relative;">
+        <textarea id="session-notes" placeholder="Anote pontos importantes, dúvidas, lembretes..."
+          oninput="autoGrowNotes(this)"
+          style="width: 100%; min-height: 180px; overflow-y: hidden; resize: none; margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: inherit; line-height: 1.6;"></textarea>
 
-      <div id="session-draw-toolbar" style="display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center;">
+        <div id="session-draw-toolbar" style="display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center; position:relative; z-index:3;">
         <button class="btn sm" id="btn-toggle-draw" onclick="toggleDrawingMode()">✍️ Caneta</button>
         <button class="btn sm" id="btn-clear-draw" onclick="clearDrawing()">🧽 Limpar desenho</button>
         <button class="btn sm" id="btn-save-draw" onclick="saveDrawingToStorage()">💾 Salvar desenho</button>
       </div>
 
-      <canvas id="session-canvas" style="display:none; width:100%; border:1px solid var(--border); border-radius:var(--radius); background:transparent; touch-action: none;"></canvas>
+        <canvas id="session-canvas" style="display:block; width:100%; border-radius:var(--radius); background:transparent; touch-action: none; pointer-events: none;"></canvas>
+      </div>
 
       <div style="display: flex; gap: 0.5rem;">
         <button id="btn-save-session" class="btn primary" onclick="saveSession()"

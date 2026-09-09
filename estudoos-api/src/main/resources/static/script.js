@@ -126,7 +126,6 @@ function initDrawingCanvas() {
     drawCanvas = document.getElementById('session-canvas');
     const notesEl = document.getElementById('session-notes');
     if (!drawCanvas || !notesEl) return;
-
     // set initial size to match notes textarea
     resizeCanvasToMatchNotes();
 
@@ -134,9 +133,18 @@ function initDrawingCanvas() {
     drawCtx.lineCap = 'round';
     drawCtx.lineJoin = 'round';
 
+    // ensure canvas overlays the notes area but doesn't block interactions when idle
+    drawCanvas.style.position = 'absolute';
+    drawCanvas.style.top = '0';
+    drawCanvas.style.left = '0';
+    drawCanvas.style.zIndex = 2;
+    drawCanvas.style.pointerEvents = 'none';
+
     window.addEventListener('resize', resizeCanvasToMatchNotes);
 
     drawCanvas.addEventListener('pointerdown', (e) => {
+      // only start drawing if pointer events are enabled on canvas
+      if (drawCanvas.style.pointerEvents === 'none') return;
       drawCanvas.setPointerCapture(e.pointerId);
       isPointerDown = true;
       const rect = drawCanvas.getBoundingClientRect();
@@ -183,10 +191,11 @@ function resizeCanvasToMatchNotes() {
   // preserve current drawing
   const data = canvas.toDataURL ? canvas.toDataURL() : null;
   const rect = notesEl.getBoundingClientRect();
-  canvas.width = Math.max(400, Math.floor(rect.width));
-  canvas.height = Math.max(120, Math.floor(rect.height));
-  canvas.style.width = rect.width + 'px';
-  canvas.style.height = rect.height + 'px';
+  // set canvas size to match the notes element's inner size
+  canvas.width = Math.max(400, Math.floor(notesEl.clientWidth));
+  canvas.height = Math.max(120, Math.floor(Math.max(notesEl.clientHeight, 120)));
+  canvas.style.width = notesEl.clientWidth + 'px';
+  canvas.style.height = Math.max(notesEl.clientHeight, 120) + 'px';
 
   if (data) {
     const img = new Image();
@@ -205,13 +214,14 @@ function toggleDrawingMode() {
   if (!canvas || !notesEl) return;
 
   drawingEnabled = !drawingEnabled;
+  // When enabled, allow canvas to receive pointer events; otherwise pass thru to textarea
   if (drawingEnabled) {
-    notesEl.style.display = 'none';
+    canvas.style.pointerEvents = 'auto';
     canvas.style.display = 'block';
     initDrawingCanvas();
   } else {
-    canvas.style.display = 'none';
-    notesEl.style.display = 'block';
+    canvas.style.pointerEvents = 'none';
+    // leave canvas visible but inactive so layout is preserved
   }
 }
 

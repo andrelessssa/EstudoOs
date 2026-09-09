@@ -510,6 +510,10 @@ label {
   margin-bottom: 1rem;
 }
 
+#session-notes-wrap { position: relative; }
+#session-notes { position: relative; z-index: 1; background: var(--surface); }
+#session-canvas { position: absolute; top: 0; left: 0; z-index: 2; display: block; pointer-events: none; }
+
 #session-topics-list,
 #session-history {
   background: var(--surface) !important;
