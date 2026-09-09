@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.estudoos.api.dtos.SessaoDTO;
+import com.estudoos.api.service.SessaoDraftService;
 import com.estudoos.api.model.Usuario;
 import com.estudoos.api.repository.UsuarioRepository;
 import com.estudoos.api.service.SessaoEstudoService;
@@ -28,10 +29,12 @@ public class SessaoEstudoController {
 
     private final SessaoEstudoService sessaoEstudoService;
     private final UsuarioRepository usuarioRepository;
+    private final SessaoDraftService sessaoDraftService;
 
-    public SessaoEstudoController(SessaoEstudoService sessaoEstudoService, UsuarioRepository usuarioRepository) {
+    public SessaoEstudoController(SessaoEstudoService sessaoEstudoService, UsuarioRepository usuarioRepository, SessaoDraftService sessaoDraftService) {
         this.sessaoEstudoService = sessaoEstudoService;
         this.usuarioRepository = usuarioRepository;
+        this.sessaoDraftService = sessaoDraftService;
     }
 
     // 🟢 Método auxiliar para extrair o usuário autenticado a partir do Token JWT
@@ -83,6 +86,25 @@ public class SessaoEstudoController {
         Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
         sessaoEstudoService.excluirSessaoEVoltarTopicos(id, usuarioLogado.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/draft")
+    public ResponseEntity<Void> salvarDraft(@RequestBody Map<String, String> body, Authentication authentication) {
+        Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
+        String dateStr = body.get("dataSessao");
+        String anotacoes = body.get("anotacoes");
+        java.time.LocalDate date = java.time.LocalDate.parse(dateStr);
+        sessaoDraftService.saveOrUpdateDraft(usuarioLogado, date, anotacoes);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/draft/{date}")
+    public ResponseEntity<Map<String, String>> obterDraft(@PathVariable String date, Authentication authentication) {
+        Usuario usuarioLogado = obterUsuarioAutenticado(authentication);
+        java.time.LocalDate dt = java.time.LocalDate.parse(date);
+        return sessaoDraftService.getDraftForUserAndDate(usuarioLogado, dt)
+                .map(a -> ResponseEntity.ok(Map.of("anotacoes", a)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
     @GetMapping("/relatorio")
     public ResponseEntity<Map<String, List<String>>> obterRelatorioSimulado(

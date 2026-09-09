@@ -8,6 +8,8 @@ let revisaoAtiva = null;
 let modoEdicao = false;
 let sessaoEmEdicaoId = null;
 let dataAtivaSessao = today();
+// Toolbar state
+let currentTextColor = '#1e90ff';
 
 // 🔑 AUXILIAR PARA TOKEN 
 function getAuthToken() {
@@ -170,14 +172,14 @@ function initDrawingCanvas() {
       if (!isPointerDown) return;
       isPointerDown = false;
       try { drawCtx.closePath(); } catch (err) {}
-      saveDrawingToStorage();
+      // drawings are transient and not persisted
     };
 
     drawCanvas.addEventListener('pointerup', endPointer);
     drawCanvas.addEventListener('pointercancel', endPointer);
     drawCanvas.addEventListener('pointerout', endPointer);
 
-    loadDrawingFromStorage();
+    // no persisted drawings should be loaded — drawings are transient
   } catch (e) {
     console.error('Erro ao inicializar canvas de desenho:', e);
   }
@@ -230,42 +232,13 @@ function clearDrawing() {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  try { localStorage.removeItem('session-drawing-' + dataAtivaSessao); } catch (e) {}
 }
-      // clear draft on success
-      try { clearDraft(); } catch (e) {}
-
-      // save draft locally so user doesn't lose notes/drawing
-      saveDraft();
-      alert("Erro ao salvar sessão no servidor. Rascunho salvo localmente.");
-  const canvas = document.getElementById('session-canvas');
-  if (!canvas) return;
-    console.error("Erro ao salvar sessão:", error);
-    saveDraft();
-    const data = canvas.toDataURL('image/png');
-    localStorage.setItem('session-drawing-' + dataAtivaSessao, data);
-  } catch (e) {
-    console.error('Erro ao salvar desenho:', e);
-  }
-}
-
+// loadDrawingFromStorage kept for compatibility but drawings are not restored automatically
 function loadDrawingFromStorage() {
-  const canvas = document.getElementById('session-canvas');
-  if (!canvas) return;
-  try {
-    const data = localStorage.getItem('session-drawing-' + dataAtivaSessao);
-    if (!data) return;
-    const img = new Image();
-    img.onload = () => {
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    };
-    img.src = data;
-  } catch (e) {
-    console.error('Erro ao carregar desenho:', e);
-  }
+  // intentionally no-op: drawings are transient in this version
 }
+
+// drawings are transient; no IndexedDB helpers required
 
 // initialize drawing canvas if DOM ready
 try { initDrawingCanvas(); } catch (e) {}
@@ -278,12 +251,25 @@ function draftKey(date) { return 'session-draft-' + date; }
 function saveDraft() {
   try {
     const notesEl = document.getElementById('session-notes');
-    const canvas = document.getElementById('session-canvas');
-    const draft = { ts: Date.now(), notes: notesEl ? notesEl.value : '', drawing: null };
-    if (canvas && canvas.toDataURL) {
-      try { draft.drawing = canvas.toDataURL('image/png'); } catch (e) { draft.drawing = null; }
-    }
+    const notes = notesEl ? notesEl.innerHTML : '';
+    const draft = { ts: Date.now(), notes };
+    // always keep a local copy as fallback
     localStorage.setItem(draftKey(dataAtivaSessao), JSON.stringify(draft));
+    // if authenticated, try to persist to server
+    if (getAuthToken()) {
+      try {
+        fetchComAuth('/sessoes/draft', {
+          method: 'PUT',
+          body: JSON.stringify({ dataSessao: dataAtivaSessao, anotacoes: notes })
+        }).then(res => {
+          // noop on success; keep local copy as well
+        }).catch(err => {
+          console.warn('Não foi possível salvar rascunho no servidor, mantendo localmente.', err);
+        });
+      } catch (e) {
+        console.warn('Erro ao enviar rascunho ao servidor:', e);
+      }
+    }
     const el = document.getElementById('mat-save-loading'); // reuse small element to briefly indicate
     if (el) {
       el.textContent = 'Rascunho salvo';
@@ -294,27 +280,35 @@ function saveDraft() {
   }
 }
 
-function loadDraftIfAny() {
+async function loadDraftIfAny() {
   try {
     const notesEl = document.getElementById('session-notes');
-    const canvas = document.getElementById('session-canvas');
     if (!notesEl) return;
+
+    // Prefer server draft when authenticated
+    if (getAuthToken()) {
+      try {
+        const res = await fetchComAuth(`/sessoes/draft/${dataAtivaSessao}`);
+        if (res.ok) {
+          const body = await res.json();
+          if (notesEl && (!notesEl.innerText || notesEl.innerText.trim() === '')) {
+            notesEl.innerHTML = body.anotacoes || '';
+            autoGrowNotes(notesEl);
+            return;
+          }
+        }
+      } catch (e) {
+        // ignore server errors and fallback to local
+      }
+    }
+
     const raw = localStorage.getItem(draftKey(dataAtivaSessao));
     if (!raw) return;
     const draft = JSON.parse(raw);
     // only restore if notes textarea is empty or user hasn't typed
-    if (notesEl && (!notesEl.value || notesEl.value.trim() === '')) {
-      notesEl.value = draft.notes || '';
+    if (notesEl && (!notesEl.innerText || notesEl.innerText.trim() === '')) {
+      notesEl.innerHTML = draft.notes || '';
       autoGrowNotes(notesEl);
-    }
-    if (canvas && draft.drawing) {
-      const img = new Image();
-      img.onload = () => {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      };
-      img.src = draft.drawing;
     }
   } catch (e) {
     console.error('Erro ao restaurar rascunho:', e);
@@ -584,14 +578,14 @@ async function iniciarRevisaoNoCaderno(revisaoId, nomeTopico) {
       if (sessaoDoTopico) {
         sessaoEmEdicaoId = sessaoDoTopico.id;
         if (notesEl) {
-          notesEl.value = sessaoDoTopico.anotacoes || "";
+          notesEl.innerHTML = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
         }
         exibirSessaoEspecificaNoHistorico(sessaoDoTopico);
       } else {
         sessaoEmEdicaoId = null;
         if (notesEl) {
-          notesEl.value = "";
+          notesEl.innerHTML = "";
           autoGrowNotes(notesEl);
         }
       }
@@ -621,14 +615,15 @@ function resetaModoSalvarSessao() {
 
   const notesEl = document.getElementById('session-notes');
   if (notesEl) {
-    notesEl.value = '';
+    notesEl.innerHTML = '';
     autoGrowNotes(notesEl);
   }
 }
 
 async function saveSession() {
   const notesEl = document.getElementById('session-notes');
-  const notes = notesEl ? notesEl.value.trim() : '';
+  const notesPlain = notesEl ? (notesEl.innerText || '').trim() : '';
+  const notes = notesPlain ? (notesEl.innerHTML || '') : '';
 
   if (revisaoAtiva) {
     try {
@@ -701,8 +696,7 @@ async function saveSession() {
       body: JSON.stringify({ ...sessaoDTO })
     });
 
-    // also persist drawing (if any) into localStorage so it's associated with this session date
-    try { saveDrawingToStorage(); } catch (e) {}
+    // drawings are not persisted; only textual notes are saved as drafts/local storage
 
     if (res.ok) {
       resetaModoSalvarSessao();
@@ -759,6 +753,7 @@ async function renderHoje() {
         if (topList) topList.innerHTML = '<div class="empty"><div class="empty-icon">📚</div>Selecione uma matéria acima</div>';
       }
       await renderHistoricoSessaoPorData(dataAtivaSessao);
+      await loadDraftIfAny();
     }
 
   } catch (error) {
@@ -811,8 +806,54 @@ async function loadSessionTopics() {
 
 function autoGrowNotes(element) {
   if (!element) return;
-  element.style.height = 'auto';
-  element.style.height = (element.scrollHeight) + 'px';
+  // For textarea: use scrollHeight; for contenteditable use a simple min-height behavior
+  try {
+    element.style.height = 'auto';
+    element.style.height = (element.scrollHeight || element.clientHeight) + 'px';
+  } catch (e) {}
+}
+
+function setTextColor(color) {
+  if (!color) return;
+  currentTextColor = color;
+  try { document.execCommand('foreColor', false, color); } catch (e) { console.warn('execCommand foreColor failed', e); }
+  updateColorButtons();
+  updateToolbarState();
+}
+
+function formatSelection(cmd) {
+  try {
+    if (cmd === 'bold') document.execCommand('bold');
+    if (cmd === 'italic') document.execCommand('italic');
+    if (cmd === 'underline') document.execCommand('underline');
+  } catch (e) { console.warn('formatSelection failed', e); }
+  // ensure UI reflects new state
+  updateToolbarState();
+}
+
+function updateColorButtons() {
+  try {
+    document.querySelectorAll('.color-btn').forEach(btn => {
+      const c = (btn.getAttribute('data-color') || '').toLowerCase();
+      if (c === (currentTextColor || '').toLowerCase()) btn.classList.add('active'); else btn.classList.remove('active');
+    });
+  } catch (e) {}
+}
+
+function updateToolbarState() {
+  try {
+    const bold = document.queryCommandState('bold');
+    const italic = document.queryCommandState('italic');
+    const underline = document.queryCommandState('underline');
+
+    const btnB = document.getElementById('btn-bold');
+    const btnI = document.getElementById('btn-italic');
+    const btnU = document.getElementById('btn-underline');
+
+    if (btnB) bold ? btnB.classList.add('active') : btnB.classList.remove('active');
+    if (btnI) italic ? btnI.classList.add('active') : btnI.classList.remove('active');
+    if (btnU) underline ? btnU.classList.add('active') : btnU.classList.remove('active');
+  } catch (e) {}
 }
 
 async function irParaCadernoMateria(materiaId, topicoId) {
@@ -844,7 +885,7 @@ async function carregarSessaoDiretaNoCaderno(sessaoId) {
 
       const notesEl = document.getElementById('session-notes');
       if (notesEl) {
-        notesEl.value = sessaoEncontrada.anotacoes || "";
+        notesEl.innerHTML = sessaoEncontrada.anotacoes || "";
         autoGrowNotes(notesEl);
       }
 
@@ -882,7 +923,7 @@ async function tratarCliqueTopico(topicId, jaConcluido, materiaIdAtual) {
         sessaoEmEdicaoId = sessaoDoTopico.id;
 
         if (notesEl) {
-          notesEl.value = sessaoDoTopico.anotacoes || "";
+          notesEl.innerHTML = sessaoDoTopico.anotacoes || "";
           autoGrowNotes(notesEl);
         }
 
@@ -978,8 +1019,8 @@ async function renderHistoricoSessaoPorData(dataFiltro) {
       }
 
       const notesEl = document.getElementById('session-notes');
-      if (notesEl && !notesEl.value) {
-        notesEl.value = primeiraSessao.anotacoes || "";
+      if (notesEl && !notesEl.innerText) {
+        notesEl.innerHTML = primeiraSessao.anotacoes || "";
         autoGrowNotes(notesEl);
       }
 
@@ -1058,7 +1099,8 @@ async function exibirSessaoEspecificaNoHistorico(sessao) {
 
 async function saveSession() {
   const notesEl = document.getElementById('session-notes');
-  const notes = notesEl ? notesEl.value.trim() : '';
+  const notesPlain = notesEl ? (notesEl.innerText || '').trim() : '';
+  const notes = notesPlain ? (notesEl.innerHTML || '') : '';
 
   if (revisaoAtiva) {
     try {
@@ -2310,6 +2352,13 @@ document.addEventListener('DOMContentLoaded', () => {
       autoGrowNotes(this);
     });
   }
+
+  // initialize toolbar state
+  try {
+    updateColorButtons();
+    updateToolbarState();
+    document.addEventListener('selectionchange', () => { updateToolbarState(); });
+  } catch (e) {}
 
   verificarAutenticacaoEInicializar();
 
