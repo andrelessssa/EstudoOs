@@ -200,6 +200,14 @@
         oninput="autoGrowNotes(this)"
         style="width: 100%; min-height: 180px; overflow-y: hidden; resize: none; margin-bottom: 1rem; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-family: inherit; line-height: 1.6;"></textarea>
 
+      <div id="session-draw-toolbar" style="display:flex;gap:.5rem;margin-bottom:.5rem;align-items:center;">
+        <button class="btn sm" id="btn-toggle-draw" onclick="toggleDrawingMode()">✍️ Caneta</button>
+        <button class="btn sm" id="btn-clear-draw" onclick="clearDrawing()">🧽 Limpar desenho</button>
+        <button class="btn sm" id="btn-save-draw" onclick="saveDrawingToStorage()">💾 Salvar desenho</button>
+      </div>
+
+      <canvas id="session-canvas" style="display:none; width:100%; border:1px solid var(--border); border-radius:var(--radius); background:transparent; touch-action: none;"></canvas>
+
       <div style="display: flex; gap: 0.5rem;">
         <button id="btn-save-session" class="btn primary" onclick="saveSession()"
           style="background: var(--accent); color: white;">💾 Salvar sessão</button>

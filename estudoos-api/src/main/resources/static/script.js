@@ -113,6 +113,148 @@ try {
   // ignore
 }
 
+// ----------------------
+// Drawing (stylus/tablet) for session notes
+// ----------------------
+let drawingEnabled = false;
+let drawCanvas = null;
+let drawCtx = null;
+let isPointerDown = false;
+
+function initDrawingCanvas() {
+  try {
+    drawCanvas = document.getElementById('session-canvas');
+    const notesEl = document.getElementById('session-notes');
+    if (!drawCanvas || !notesEl) return;
+
+    // set initial size to match notes textarea
+    resizeCanvasToMatchNotes();
+
+    drawCtx = drawCanvas.getContext('2d');
+    drawCtx.lineCap = 'round';
+    drawCtx.lineJoin = 'round';
+
+    window.addEventListener('resize', resizeCanvasToMatchNotes);
+
+    drawCanvas.addEventListener('pointerdown', (e) => {
+      drawCanvas.setPointerCapture(e.pointerId);
+      isPointerDown = true;
+      const rect = drawCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      drawCtx.beginPath();
+      drawCtx.moveTo(x, y);
+    });
+
+    drawCanvas.addEventListener('pointermove', (e) => {
+      if (!isPointerDown) return;
+      const rect = drawCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const pressure = e.pressure && e.pressure > 0 ? e.pressure : 0.5;
+      drawCtx.lineWidth = Math.max(1, 2 + pressure * 3);
+      drawCtx.strokeStyle = 'rgba(255,90,60,0.95)';
+      drawCtx.lineTo(x, y);
+      drawCtx.stroke();
+    });
+
+    const endPointer = (e) => {
+      if (!isPointerDown) return;
+      isPointerDown = false;
+      try { drawCtx.closePath(); } catch (err) {}
+      saveDrawingToStorage();
+    };
+
+    drawCanvas.addEventListener('pointerup', endPointer);
+    drawCanvas.addEventListener('pointercancel', endPointer);
+    drawCanvas.addEventListener('pointerout', endPointer);
+
+    loadDrawingFromStorage();
+  } catch (e) {
+    console.error('Erro ao inicializar canvas de desenho:', e);
+  }
+}
+
+function resizeCanvasToMatchNotes() {
+  const canvas = document.getElementById('session-canvas');
+  const notesEl = document.getElementById('session-notes');
+  if (!canvas || !notesEl) return;
+
+  // preserve current drawing
+  const data = canvas.toDataURL ? canvas.toDataURL() : null;
+  const rect = notesEl.getBoundingClientRect();
+  canvas.width = Math.max(400, Math.floor(rect.width));
+  canvas.height = Math.max(120, Math.floor(rect.height));
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+
+  if (data) {
+    const img = new Image();
+    img.onload = () => {
+      drawCtx = canvas.getContext('2d');
+      drawCtx.clearRect(0, 0, canvas.width, canvas.height);
+      drawCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = data;
+  }
+}
+
+function toggleDrawingMode() {
+  const canvas = document.getElementById('session-canvas');
+  const notesEl = document.getElementById('session-notes');
+  if (!canvas || !notesEl) return;
+
+  drawingEnabled = !drawingEnabled;
+  if (drawingEnabled) {
+    notesEl.style.display = 'none';
+    canvas.style.display = 'block';
+    initDrawingCanvas();
+  } else {
+    canvas.style.display = 'none';
+    notesEl.style.display = 'block';
+  }
+}
+
+function clearDrawing() {
+  const canvas = document.getElementById('session-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  try { localStorage.removeItem('session-drawing-' + dataAtivaSessao); } catch (e) {}
+}
+
+function saveDrawingToStorage() {
+  const canvas = document.getElementById('session-canvas');
+  if (!canvas) return;
+  try {
+    const data = canvas.toDataURL('image/png');
+    localStorage.setItem('session-drawing-' + dataAtivaSessao, data);
+  } catch (e) {
+    console.error('Erro ao salvar desenho:', e);
+  }
+}
+
+function loadDrawingFromStorage() {
+  const canvas = document.getElementById('session-canvas');
+  if (!canvas) return;
+  try {
+    const data = localStorage.getItem('session-drawing-' + dataAtivaSessao);
+    if (!data) return;
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = data;
+  } catch (e) {
+    console.error('Erro ao carregar desenho:', e);
+  }
+}
+
+// initialize drawing canvas if DOM ready
+try { initDrawingCanvas(); } catch (e) {}
+
 // 📊 DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
@@ -482,6 +624,9 @@ async function saveSession() {
       method: 'POST',
       body: JSON.stringify({ ...sessaoDTO })
     });
+
+    // also persist drawing (if any) into localStorage so it's associated with this session date
+    try { saveDrawingToStorage(); } catch (e) {}
 
     if (res.ok) {
       resetaModoSalvarSessao();

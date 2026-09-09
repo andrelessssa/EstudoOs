@@ -501,6 +501,15 @@ label {
   border-radius: var(--radius);
 }
 
+/* Canvas for stylus drawing in session notes */
+#session-canvas {
+  width: 100%;
+  border-radius: var(--radius);
+  background: repeating-linear-gradient(transparent, transparent 27px, rgba(255,255,255,0.02) 28px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  margin-bottom: 1rem;
+}
+
 #session-topics-list,
 #session-history {
   background: var(--surface) !important;
