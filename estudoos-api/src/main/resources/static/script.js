@@ -232,11 +232,16 @@ function clearDrawing() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   try { localStorage.removeItem('session-drawing-' + dataAtivaSessao); } catch (e) {}
 }
+      // clear draft on success
+      try { clearDraft(); } catch (e) {}
 
-function saveDrawingToStorage() {
+      // save draft locally so user doesn't lose notes/drawing
+      saveDraft();
+      alert("Erro ao salvar sessão no servidor. Rascunho salvo localmente.");
   const canvas = document.getElementById('session-canvas');
   if (!canvas) return;
-  try {
+    console.error("Erro ao salvar sessão:", error);
+    saveDraft();
     const data = canvas.toDataURL('image/png');
     localStorage.setItem('session-drawing-' + dataAtivaSessao, data);
   } catch (e) {
@@ -264,6 +269,67 @@ function loadDrawingFromStorage() {
 
 // initialize drawing canvas if DOM ready
 try { initDrawingCanvas(); } catch (e) {}
+
+// ----------------------
+// Draft autosave for notes + drawing
+// ----------------------
+const DRAFT_INTERVAL_MS = 15000; // 15s
+function draftKey(date) { return 'session-draft-' + date; }
+function saveDraft() {
+  try {
+    const notesEl = document.getElementById('session-notes');
+    const canvas = document.getElementById('session-canvas');
+    const draft = { ts: Date.now(), notes: notesEl ? notesEl.value : '', drawing: null };
+    if (canvas && canvas.toDataURL) {
+      try { draft.drawing = canvas.toDataURL('image/png'); } catch (e) { draft.drawing = null; }
+    }
+    localStorage.setItem(draftKey(dataAtivaSessao), JSON.stringify(draft));
+    const el = document.getElementById('mat-save-loading'); // reuse small element to briefly indicate
+    if (el) {
+      el.textContent = 'Rascunho salvo';
+      setTimeout(() => { if (el) el.textContent = ''; }, 1200);
+    }
+  } catch (e) {
+    console.error('Erro ao salvar rascunho:', e);
+  }
+}
+
+function loadDraftIfAny() {
+  try {
+    const notesEl = document.getElementById('session-notes');
+    const canvas = document.getElementById('session-canvas');
+    if (!notesEl) return;
+    const raw = localStorage.getItem(draftKey(dataAtivaSessao));
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+    // only restore if notes textarea is empty or user hasn't typed
+    if (notesEl && (!notesEl.value || notesEl.value.trim() === '')) {
+      notesEl.value = draft.notes || '';
+      autoGrowNotes(notesEl);
+    }
+    if (canvas && draft.drawing) {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      };
+      img.src = draft.drawing;
+    }
+  } catch (e) {
+    console.error('Erro ao restaurar rascunho:', e);
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(draftKey(dataAtivaSessao)); } catch (e) {}
+}
+
+// autosave interval
+try {
+  setInterval(() => { saveDraft(); }, DRAFT_INTERVAL_MS);
+  window.addEventListener('beforeunload', () => { saveDraft(); });
+} catch (e) {}
 
 // 📊 DASHBOARD 
 async function renderDashboard() {
