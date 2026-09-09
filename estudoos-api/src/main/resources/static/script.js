@@ -1200,7 +1200,12 @@ async function saveMateria() {
   }
   if (loadingEl) loadingEl.style.display = 'inline-block';
 
-  const novosTopicos = topicsRaw.split('\n').map(t => t.trim()).filter(Boolean);
+  // Allow topics that span multiple lines: split by blank line (one or more empty lines)
+  // and collapse internal newlines into spaces so a multi-line topic remains one topic.
+  const novosTopicos = (topicsRaw || '')
+    .split(/\n\s*\n+/)              // split on one or more blank lines
+    .map(t => t.replace(/\n+/g, ' ').trim()) // collapse internal newlines into single spaces
+    .filter(Boolean);
 
   try {
     if (matId) {
