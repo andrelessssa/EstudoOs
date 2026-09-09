@@ -100,6 +100,19 @@ try {
   // fail silently in environments without DOM
 }
 
+function resetDashMonth() {
+  dashMonthOffset = 0;
+  renderDashboard();
+}
+
+// Attach today button if present
+try {
+  const todayBtn = document.getElementById('dash-today-btn');
+  if (todayBtn) todayBtn.addEventListener('click', resetDashMonth);
+} catch (e) {
+  // ignore
+}
+
 // 📊 DASHBOARD 
 async function renderDashboard() {
   if (!getAuthToken()) return;
