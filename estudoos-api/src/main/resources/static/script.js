@@ -1920,35 +1920,73 @@ async function excluirConcurso(id, btnEl) {
 
   // disable button to avoid double-clicks
   if (btnEl) btnEl.disabled = true;
+  // Primeiro, remova localmente para garantir que o card suma imediatamente
+  try {
+    let list = loadConcursosFromStorage();
+    if (list && typeof list.then === 'function') {
+      try { list = await list; } catch (e) { list = []; }
+    }
 
-  // Se autenticado, remova no servidor também e verifique resposta
+    list = (Array.isArray(list) ? list : []).filter(c => String(c.id) !== String(id));
+    saveConcursosToStorage(list);
+    renderConcurso();
+  } catch (e) {
+    console.warn('Erro ao remover concurso localmente:', e);
+  }
+
+  // Em segundo plano, tente remover no servidor (se autenticado). Falhas remotas não impedem a remoção local.
   if (getAuthToken()) {
     try {
-      const res = await fetchComAuth(`/concursos/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        if (res.status === 401) {
-          alert('Sessão expirada. Faça login novamente para excluir.');
-          if (btnEl) btnEl.disabled = false;
-          return;
+      let shouldDeleteOnServer = false;
+      try {
+        const listRes = await fetchComAuth('/concursos');
+        if (listRes.ok) {
+          const srvList = await listRes.json();
+          shouldDeleteOnServer = srvList.some(i => String(i.id) === String(id));
+        } else {
+          console.warn('Não foi possível verificar lista de concursos no servidor, status:', listRes.status);
         }
-        console.warn('Falha ao excluir no servidor, status:', res.status);
+      } catch (e) {
+        console.warn('Erro ao verificar concursos no servidor, pulando exclusão remota:', e);
+      }
+
+      if (shouldDeleteOnServer) {
+        const res = await fetchComAuth(`/concursos/${id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          if (res.status === 401) {
+            alert('Sessão expirada. O concurso foi removido localmente; faça login para sincronizar no servidor.');
+          } else {
+            console.warn('Falha ao excluir no servidor, status:', res.status);
+          }
+        }
+      } else {
+        console.log('Concurso não encontrado no servidor (provavelmente local-only), pulando DELETE remoto.');
       }
     } catch (e) {
       console.warn('Erro ao chamar API de exclusão:', e);
     }
   }
 
-  let list = loadConcursosFromStorage();
-  if (list && typeof list.then === 'function') {
-    try { list = await list; } catch (e) { list = []; }
-  }
-
-  list = (Array.isArray(list) ? list : []).filter(c => String(c.id) !== String(id));
-  saveConcursosToStorage(list);
-  renderConcurso();
-
   if (btnEl) btnEl.disabled = false;
 }
+
+// Expose a helper to force-remove a concurso from localStorage (useful for debugging)
+window.forceRemoveConcurso = function(id) {
+  try {
+    const key = 'studyos_concursos';
+    const raw = localStorage.getItem(key) || '[]';
+    let list = JSON.parse(raw);
+    const before = list.length;
+    list = (Array.isArray(list) ? list : []).filter(c => String(c.id) !== String(id));
+    localStorage.setItem(key, JSON.stringify(list));
+    try { renderConcurso(); } catch (e) {}
+    console.log(`forceRemoveConcurso: removed ${id} (before=${before}, after=${list.length})`);
+    return { removed: true, before, after: list.length };
+  } catch (e) {
+    console.error('forceRemoveConcurso error', e);
+    return { removed: false, error: String(e) };
+  }
+};
 
 function renderConcursoCards(container, concursos) {
   if (!container) return;
@@ -1957,15 +1995,18 @@ function renderConcursoCards(container, concursos) {
     return;
   }
 
-  const html = concursos.map(c => {
+  // Insert cards but skip any that already exist in the container (idempotent)
+  concursos.forEach(c => {
+    const existing = container.querySelector(`[data-concurso-id="${c.id}"]`);
+    if (existing) return; // already rendered
     const dias = calcularTempoRestante(c.data) || 'Data inválida';
     const pct = c.coverage + '%';
     const remaining = c.missing ? c.missing.length : 0;
 
     const materiasIdent = Array.from(new Map((c.matched || []).map(m => [m.materia, []]))).map(k => k[0]);
 
-    return `
-      <div class="card concurso-card">
+    const cardHtml = `
+      <div class="card concurso-card" data-concurso-id="${c.id}">
         <div class="concurso-main-row">
           <div class="concurso-left">
             <div class="concurso-days">${dias.split(' ')[0] || dias}</div>
@@ -1983,6 +2024,7 @@ function renderConcursoCards(container, concursos) {
           </div>
           <div class="concurso-actions">
             <button class="btn sm danger" onclick="excluirConcurso('${c.id}', this)">🗑</button>
+            <button class="btn sm" onclick="forceRemoveConcurso('${c.id}')">Remover local</button>
             <button id="concurso-toggle-${c.id}" class="btn sm" onclick="toggleExpandConcurso('${c.id}')">🔼</button>
           </div>
         </div>
@@ -1997,9 +2039,9 @@ function renderConcursoCards(container, concursos) {
           </div>
         </div>
       </div>`;
-  }).join('\n');
 
-  container.insertAdjacentHTML('beforeend', html);
+    container.insertAdjacentHTML('beforeend', cardHtml);
+  });
 }
 
 function showConcursoFullView(id) {
