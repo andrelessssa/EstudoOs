@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -141,12 +140,12 @@ public class CicloService {
         }
 
         String pr = prioridade == null ? "" : prioridade;
-        if ("weak".equals(pr)) {
-            blocos.sort(Comparator.comparingInt(bloco -> bloco.progressoPct()));
-        } else if ("random".equals(pr)) {
-            Collections.shuffle(blocos);
-        } else {
-            // 'sequential' or default -> preserve collected order (materias top->down, tópicos em ordem)
+        switch (pr) {
+            case "weak" -> blocos.sort(Comparator.comparingInt(BlocoRaw::progressoPct));
+            case "random" -> Collections.shuffle(blocos);
+            default -> {
+                // 'sequential' or default -> preserve collected order (materias top->down, tópicos em ordem)
+            }
         }
 
         return blocos;
@@ -168,10 +167,6 @@ public class CicloService {
         }
 
         return dias;
-    }
-
-    private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia) {
-        return distribuirBlocosPorDia(blocos, dias, horasPorDia, "");
     }
 
     private List<DiaDTO> distribuirBlocosPorDia(List<BlocoRaw> blocos, List<LocalDate> dias, int horasPorDia, String priorityMode) {
@@ -216,9 +211,7 @@ public class CicloService {
 
             List<DiaDTO> resultado = new ArrayList<>();
 
-            Iterator<LocalDate> itDias = dias.iterator();
-            while (itDias.hasNext()) {
-                LocalDate dia = itDias.next();
+            for (LocalDate dia : dias) {
                 List<BlocoDTO> blocosNoDia = new ArrayList<>();
                 for (int slot = 0; slot < horasPorDia; slot++) {
                     // Encontrar próxima matéria com blocos disponíveis
